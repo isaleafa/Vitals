@@ -16,8 +16,16 @@ mkdir -p "$STAGE"
 cp -R build/Vitals.app "$STAGE/Vitals.app"
 ln -s /Applications "$STAGE/Applications"        # 拖拽安装用的软链
 
-# macOS 27 起 hdiutil create 已弃用，改用 diskutil image create from
-diskutil image create from --volumeName "Vitals ${VERSION}" --format UDZO "$STAGE" "$DMG" >/dev/null
+# 打包。macOS 26 起 hdiutil create 已弃用，新命令是 diskutil image create from；
+# 但新命令在 macOS 15 及更早根本不存在（CI 的 macos-15 runner 就会失败），所以"新的优先、失败回落"。
+if diskutil image create from --volumeName "Vitals ${VERSION}" --format UDZO "$STAGE" "$DMG" >/dev/null 2>&1 \
+   && [ -f "$DMG" ]; then
+    TOOL="diskutil image create"
+else
+    rm -f "$DMG"
+    hdiutil create -volname "Vitals ${VERSION}" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+    TOOL="hdiutil create（新命令在这台系统上不可用）"
+fi
 
 # 挂载回来自检：确认 app 与软链都在、签名可读，再卸载
 MOUNT=$(hdiutil attach "$DMG" -nobrowse -readonly 2>/dev/null | grep -o '/Volumes/.*' | head -1)
@@ -30,7 +38,7 @@ trap - EXIT
 
 rm -rf "$STAGE"
 
-echo "✓ 打包完成：${DMG}（$(du -h "$DMG" | cut -f1)）"
+echo "✓ 打包完成：${DMG}（$(du -h "$DMG" | cut -f1)，用了 ${TOOL}）"
 echo "  sha256 $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 echo
 echo "上传到 GitHub Release："
