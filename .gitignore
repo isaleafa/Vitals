@@ -1,0 +1,15 @@
+# 构建产物
+build/
+
+# macOS
+.DS_Store
+
+# 图标生成中间产物
+*.iconset
+
+# Python 探针的缓存
+__pycache__/
+*.pyc
+
+# 参考截图（第三方 App 界面，仅本地留档，不分发）
+reference/
