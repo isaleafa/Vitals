@@ -41,8 +41,12 @@ enum NetworkCheckProvider {
         return list
     }
 
-    /// 内网探测目标（走 h3cvpn 隧道的机器）
-    static let intranetHost = "192.168.1.50"
+    /// 内网探测目标（默认是通用示例地址）。
+    /// 改成你自己的内网主机：
+    /// `defaults write top.liyi830.vitals intranetHost 192.168.1.50`
+    static var intranetHost: String {
+        UserDefaults.standard.string(forKey: "intranetHost") ?? "192.168.1.50"
+    }
     /// 公网探测目标（国内可达，不用代理）
     static let publicHost = "223.5.5.5"
 
