@@ -13,6 +13,7 @@ jobs:
     # 必须用 Apple Silicon 的 runner：build.sh 拿 uname -m 决定编译架构，
     # 而 Vitals 的读数（SMC / IOReport / HID 传感器）只有 arm64 才有意义。
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +31,16 @@ jobs:
         run: |
           BIN=build/Vitals.app/Contents/MacOS/Vitals
           lipo -archs "$BIN" | grep -q arm64 || { echo "✗ 产物不是 arm64"; exit 1; }
-          otool -l "$BIN" | grep -A2 LC_BUILD_VERSION | grep minos
-          "$BIN" --dump >/dev/null && echo "✓ 二进制能跑并读出数据"
+          echo "最低系统版本（应为 14.0）："
+          vtool -show-build "$BIN" | grep -E "platform|minos|sdk"
+          codesign -dv build/Vitals.app 2>&1 | grep -E "Identifier|Signature"
+          # 冒烟测试：CI 机器是虚拟机，可能缺 SMC/电池通道，跑不通不阻塞发版（但要看日志）
+          if "$BIN" --dump >/dev/null 2>/tmp/dump.err; then
+            echo "✓ 二进制能跑并读出数据"
+          else
+            echo "⚠ --dump 在这台机器上没跑通（退出码 $?），末尾日志："
+            tail -5 /tmp/dump.err || true
+          fi
 
       - name: 打包 DMG
         run: ./scripts/package.sh
