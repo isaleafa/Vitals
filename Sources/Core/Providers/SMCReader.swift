@@ -50,7 +50,7 @@ final class SMCReader {
 
     private func exchange(_ input: [UInt8]) -> [UInt8]? {
         guard connection != 0 else { return nil }
-        var mutableInput = input
+        let mutableInput = input
         var output = [UInt8](repeating: 0, count: structSize)
         var outputSize = structSize
         let result = mutableInput.withUnsafeBytes { inputBuffer -> kern_return_t in

@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:        # 也可以在 Actions 页面手动点一下（用 build.sh 里的版本号建 Release）
+
+permissions:
+  contents: write           # 创建 Release 需要
+
+jobs:
+  build:
+    # 必须用 Apple Silicon 的 runner：build.sh 拿 uname -m 决定编译架构，
+    # 而 Vitals 的读数（SMC / IOReport / HID 传感器）只有 arm64 才有意义。
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 环境自检
+        run: |
+          swift --version
+          sw_vers
+          echo "架构：$(uname -m)"
+          [ "$(uname -m)" = "arm64" ] || { echo "✗ runner 不是 arm64，产物在 Apple Silicon 上跑不了"; exit 1; }
+
+      - name: 构建 .app
+        run: ./scripts/build.sh
+
+      - name: 校验产物
+        run: |
+          BIN=build/Vitals.app/Contents/MacOS/Vitals
+          lipo -archs "$BIN" | grep -q arm64 || { echo "✗ 产物不是 arm64"; exit 1; }
+          otool -l "$BIN" | grep -A2 LC_BUILD_VERSION | grep minos
+          "$BIN" --dump >/dev/null && echo "✓ 二进制能跑并读出数据"
+
+      - name: 打包 DMG
+        run: ./scripts/package.sh
+
+      - name: 建 Release 并挂上 DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/Vitals.app/Contents/Info.plist)
+          TAG="v${VERSION}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Vitals ${TAG}" --notes-file docs/release-notes.md
+          gh release upload "$TAG" "build/Vitals-${VERSION}.dmg" --clobber
+          gh release view "$TAG" --json url -q .url

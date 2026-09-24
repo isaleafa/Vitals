@@ -107,6 +107,30 @@
 - **Apple Silicon**（Intel 未测试；温度/功耗走的是 Apple Silicon 的 SMC/IOReport 通道）
 - 构建**只需要 Command Line Tools，不需要完整 Xcode**
 
+### 下载安装（不用编译）
+
+到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.1.0.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
+
+> ⚠️ **首次打开会被 Gatekeeper 拦下**：本 App 是 **ad-hoc 签名**（开源项目没有付费的 Apple 开发者账号做公证），双击只会看到「Apple 无法检查其是否包含恶意软件」——在 macOS 26/27 上这是**直接拒绝启动**，不是给个提示让你点继续。放行方式三选一：
+>
+> **① 图形方式**（推荐）：先双击一次让它被拦 → 打开「**系统设置 → 隐私与安全性**」→ 下拉到「安全性」区域 → 点「**仍要打开**」→ 输入密码确认。
+>
+> **② 终端一条命令**：
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Vitals.app
+> ```
+>
+> **③ 干脆用终端下载安装**（`curl` 不会打隔离属性，所以完全不触发 Gatekeeper）：
+> ```bash
+> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.1.0/Vitals-0.1.0.dmg
+> hdiutil attach /tmp/Vitals.dmg
+> ditto "/Volumes/Vitals 0.1.0/Vitals.app" /Applications/Vitals.app
+> hdiutil detach "/Volumes/Vitals 0.1.0"
+> open /Applications/Vitals.app
+> ```
+
+> **必须从 `/Applications` 运行**：macOS 27 的菜单栏机制（以及 Hidden Bar 这类工具）只认 `/Applications` 里的副本；从别处启动的菜单栏 App 会被判成"认不出来的 App"，收起菜单栏时被隐藏。
+
 ### 从源码构建
 
 ```bash
@@ -114,11 +138,9 @@ git clone git@github.com:isaleafa/Vitals.git vitals
 cd vitals
 
 ./scripts/build.sh    # 编译 + 生成应用图标 + 打包成 build/Vitals.app
-./scripts/run.sh      # 装到 /Applications 并启动
+./scripts/run.sh      # 编译 + 装到 /Applications + 重启（就是上面那条"必须从 /Applications 运行"）
+./scripts/package.sh  # 打成可分发的 DMG（会自动挂载回来自检）
 ```
-
-> **为什么必须从 `/Applications` 运行**
-> macOS 27 的菜单栏机制（以及 Hidden Bar 这类工具）只认 `/Applications` 里的副本；从 `build/` 目录直接跑的菜单栏 App 会被判成"认不出来的 App"，收起菜单栏时被隐藏。`run.sh` 已经自动做到"编译 → 复制到 /Applications → 重启"。
 
 ### 首次使用
 
@@ -210,12 +232,14 @@ Sources/
 ```bash
 ./scripts/build.sh                     # 编译 + 打包（含图标生成）
 ./scripts/run.sh                       # 编译 + 安装到 /Applications + 重启
+./scripts/package.sh                   # 打成 DMG（挂载回来自检后输出到 build/Vitals-<版本>.dmg）
 ./scripts/build.sh && build/Vitals.app/Contents/MacOS/Vitals --dump   # 只对账数据
 ```
 
 - 图标由 `scripts/make-icon.swift` 生成（纯代码画 → `.iconset` → `.icns`），`build.sh` 会自动调用
 - 调试界面：`--preview <page>` 开普通窗口，配合 `screencapture -x -l <窗口号>` 按窗口截图（不受前后层级/屏幕布局影响）
 - 无 Xcode 构建的注意事项（缺 `SwiftUIMacros` 时不能用 `@State`、`@main` 要配 `-parse-as-library` 等）见 `PLAN.md` 附录
+- **发版**：改 `scripts/build.sh` 里的版本号 → commit → 打个 `v*` 标签推上去，`.github/workflows/release.yml` 会在 macOS runner 上自动构建 DMG 并在 Releases 建好条目（本地也可以直接 `./scripts/package.sh` 然后手动 `gh release create`）
 
 ## 路线图
 
