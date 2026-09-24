@@ -110,7 +110,7 @@
 ### 从源码构建
 
 ```bash
-git clone <本仓库地址> vitals
+git clone git@github.com:isaleafa/Vitals.git vitals
 cd vitals
 
 ./scripts/build.sh    # 编译 + 生成应用图标 + 打包成 build/Vitals.app
