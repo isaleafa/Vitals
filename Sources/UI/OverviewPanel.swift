@@ -62,25 +62,6 @@ struct OverviewPanel: View {
                            color: powerColor, history: state.powerHistory)
             }
 
-            HStack(spacing: 8) {
-                Button("服务与自启 →") { DetailWindows.open("services", state: state) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
-            HStack(spacing: 8) {
-                Toggle("开机自启", isOn: Binding(get: { state.loginItemEnabled },
-                                              set: { state.setLoginItem($0) }))
-                    .toggleStyle(.switch)
-                    .font(.system(size: 10))
-                if let message = state.loginItemMessage {
-                    Text(message).font(.system(size: 9)).foregroundStyle(.tertiary).lineLimit(2)
-                }
-                Spacer()
-            }
-
             footer
         }
         .padding(12)
@@ -139,15 +120,58 @@ struct OverviewPanel: View {
         return parts.joined(separator: " · ")
     }
 
+    /// 标题行右侧 = 运行时长 + 开机自启开关（设一次就不再动的控件，压成 mini 开关放在这里，
+    /// 不再单独占一行）；开关的反馈消息（"需在系统设置里允许…"）挂在这行下面、右对齐。
     private var header: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "gauge").font(.system(size: 11)).foregroundStyle(.blue)
-            Text("Vitals").font(.system(size: 12, weight: .semibold))
-            Text("Mac 工具箱 · 实时监视").font(.system(size: 10)).foregroundStyle(.tertiary)
-            Spacer()
-            Text("运行 \(Fmt.duration(state.snapshot.cpu.uptime))")
-                .font(.system(size: 10)).foregroundStyle(.secondary)
+        VStack(alignment: .trailing, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: "gauge").font(.system(size: 11)).foregroundStyle(.blue)
+                Text("Vitals").font(.system(size: 12, weight: .semibold))
+                Text("Mac 工具箱").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text("运行 \(Fmt.duration(state.snapshot.cpu.uptime))")
+                    .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize()
+                loginToggle
+            }
+            if let message = state.loginItemMessage {
+                Text(message)
+                    .font(.system(size: 9)).foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
+    }
+
+    private var loginToggle: some View {
+        Toggle("开机自启", isOn: Binding(get: { state.loginItemEnabled },
+                                      set: { state.setLoginItem($0) }))
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .font(.system(size: 10))
+            .fixedSize()
+            .help(state.loginItemEnabled ? "开机自启：已开启（点击关闭）" : "开机自启：已关闭（点击开启）")
+    }
+
+    /// 菜单栏显示什么：两档预设二选一（打勾的就是当前项）。
+    private var menuBarStyleMenu: some View {
+        Menu {
+            ForEach(MenuBarStyle.allCases) { style in
+                Toggle(style.title, isOn: Binding(
+                    get: { state.menuBarStyle == style },
+                    set: { if $0 { state.menuBarStyle = style } }))
+            }
+        } label: {
+            Image(systemName: "rectangle.topthird.inset.filled")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("菜单栏显示：电池 / CPU + 内存")
     }
 
     private var footer: some View {
@@ -156,6 +180,11 @@ struct OverviewPanel: View {
                 .font(.system(size: 10)).foregroundStyle(.tertiary).monospacedDigit()
             Spacer()
             Text("点卡片看详情").font(.system(size: 10)).foregroundStyle(.tertiary)
+            menuBarStyleMenu
+            Button("服务与自启 →") { DetailWindows.open("services", state: state) }
+                .buttonStyle(.plain)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
                 .font(.system(size: 11)).foregroundStyle(.secondary)

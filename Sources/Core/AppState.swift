@@ -17,6 +17,12 @@ final class AppState: ObservableObject {
     @Published var menuBarSymbol = "battery.100"
     @Published var menuBarText = "…"
 
+    /// 菜单栏显示样式（两档预设，面板底部的小菜单切换）。持久化：重启后保持选择。
+    @Published var menuBarStyle: MenuBarStyle =
+        MenuBarStyle(rawValue: UserDefaults.standard.string(forKey: "menuBarStyle") ?? "") ?? .battery {
+        didSet { UserDefaults.standard.set(menuBarStyle.rawValue, forKey: "menuBarStyle") }
+    }
+
     // 60 点迷你曲线（1 秒一个点）
     @Published var cpuHistory: [Double] = []
     @Published var memHistory: [Double] = []          // 已用 GB

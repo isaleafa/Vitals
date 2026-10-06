@@ -242,11 +242,11 @@ struct VitalsApp: App {
     }
 }
 
-/// 菜单栏常驻标签：只显示电源图标（电池分档 + 接电带闪电），不显示百分比——
-/// 百分比在点开后（总览卡片 / 电源页）看。
+/// 菜单栏常驻标签：电池图标（电池分档 + 接电带闪电）或 CPU + 内存两档显示，面板底部切换。
 ///
-/// 图标是自绘的模板图（`MenuBarBatteryIcon`）：SwiftUI 会把 `Image(systemName:)` 还原成符号名
-/// 交给 AppKit 按默认尺寸画，`.font()`/`.frame()` 那些修饰全被丢掉——自绘才能"变大但占位不变"。
+/// 图标是自绘的模板图（`MenuBarIcon`）：SwiftUI 会把 `Image(systemName:)` 还原成符号名
+/// 交给 AppKit 按默认尺寸画，`.font()`/`.frame()` 那些修饰全被丢掉——自绘才能"变大但占位不变"，
+/// 也才能把 CPU%/内存这两个数字画进菜单栏。
 struct MenuBarLabel: View {
     @ObservedObject var state: AppState
 
@@ -254,8 +254,7 @@ struct MenuBarLabel: View {
         // ⚠️ 必须保持"单个 Image"的形状：写 if 分支（ViewBuilder 的 _ConditionalContent）
         // 会让整个菜单栏图标渲染不出来（2026-09-24 实测）。所以只在两张图之间切换。
         Image(nsImage: state.allAlerts.isEmpty
-              ? MenuBarBatteryIcon.image(charge: state.snapshot.power.charge,
-                                         plugged: state.snapshot.power.externalPower)
+              ? MenuBarIcon.image(style: state.menuBarStyle, snapshot: state.snapshot)
               : MenuBarBatteryIcon.warning)
     }
 }

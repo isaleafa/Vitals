@@ -167,6 +167,7 @@ Vitals.app  (@main MenuBarExtra .window)
 ## 6b. 功能路线图（2026-09-24 与用户确认，**按顺序推进**）
 
 用户已确认要这 7 项，其余设置项**明确砍掉**（采样间隔 / 历史保留天数 / 菜单栏显示项——没人会调，只增加出错面）。
+> 2026-10-06 修订：**菜单栏显示项解禁**——用户每天确实会看 CPU/内存，做成「电池 / CPU + 内存」**两档预设**（面板底部小菜单切换，UserDefaults 持久化）。采样间隔、历史保留天数仍然砍掉；也不做任意指标/任意组合的自定义。
 
 | # | 功能 | 内容 | 验收标准 |
 |---|---|---|---|
@@ -256,6 +257,7 @@ python3 probes/power-probe.py --watch 5                                # 电源�
 21. **按需采样的页面必须"打开即采"**：如果只挂在 `tickCount % 30 == 0` 这类轮次上，用户打开页面后要对着"读取中…"等 30 秒，看着就像功能没实装（用户实测反馈 SSD 健康页）。Sampler 现在监听 want 开关的 false→true 边沿立刻采一次，之后再按轮次刷新。
 22. 解析 `smartctl` 这类 "键: 值" 文本要**精确匹配 `键:`**，否则 `Available Spare` 会把 `Available Spare Threshold` 那行也抓进来（实测踩过：备用块显示成了 Threshold 的值）。数值记得补单位（小时/次/°C），字段名在界面上用中文。
 29. **菜单栏标签还有个坑：`if` 条件分支会让整个图标不渲染**。实测写 `if 有告警 { Image(systemName:) } else { Image(nsImage:) }` —— 图标直接消失（ViewBuilder 包成 `_ConditionalContent`，那个 status item 的渲染路径不吃）。正确做法：保持「单个 `Image`」的形状，只在两张 `NSImage` 之间切换（`Image(nsImage: cond ? a : b)`）。
+29b. **菜单栏里显示 CPU%/内存这类数字，必须自己画进 NSImage**（2026-10-06，菜单栏两档显示时落地）。和第 29 条同一个机制：label 只认单个 `Image`，`Text` 与 `.font()`/`.frame()` 全被丢掉。做法：`NSImage(size:flipped:drawingHandler:)`——**用 drawingHandler 而不是 lockFocus**，绘制闭包会按屏幕缩放各画一份，2x 屏上字才不发虚；数字用 `monospacedDigitSystemFont` 避免宽度抖动；`isTemplate = true` 交给系统按菜单栏明暗上色（分隔线用 alpha 0.4 调制）；字号 12pt 与系统菜单栏文字（13pt）并排大小相当。样式两档预设存 UserDefaults，缓存按"格式化后的文本"做单条 memo。
 28. **登录项 / 后台服务的权威数据源（免 root）**：① plist 目录（`~/Library/LaunchAgents`、`/Library/LaunchAgents`、`/Library/LaunchDaemons`）给静态配置（Label/Program/RunAtLoad/KeepAlive）；② `launchctl list` 给用户域的 **PID + 上次退出码**，系统域用 `launchctl print system/<label>`（**不需要 root**，state/program/pid/last exit 都能读）；③ **`sfltool dumpbtm`** 是「设置 → 通用 → 登录项」背后的 BTM 数据库，**也不需要 root**，给出 `Disposition: [enabled/disabled]`、`Last Use`、plist URL —— **要报"谁在自启"，直接读系统自己的账本，别自己推断**。注意 BTM 的 `Identifier` 带类型前缀（`16.` 守护进程 / `8.` 代理 / `2.` App 项），比对前要剥掉。
 28b. **分发：ad-hoc 签名的 App 在 macOS 26/27 上是被"硬拦"，不是"提示"**（2026-09-24 实测，为发 DMG 时验证）。给 app 副本打上 `com.apple.quarantine` 后：① `open` / 双击 → **进程根本不起来**（无新进程）；② 直接 exec 包内二进制 → **零输出、静默被杀**；③ `spctl -a -vv` 对**本地构建的副本也判 rejected**（ad-hoc 没有 Developer ID 一律拒）——**但没打隔离属性时照常启动**，所以判定关键是 quarantine 属性、不是 spctl 的结论。放行三法：系统设置→隐私与安全性→「仍要打开」（得先双击被拦一次才有这个按钮）；`xattr -dr com.apple.quarantine`（实测有效）；**或干脆用 `curl` 下载——curl 只打 `com.apple.provenance`、不打 `com.apple.quarantine`，完全绕过 Gatekeeper**（README 给了 curl 一键装）。结论：开源 macOS App 不做 Apple 公证（$99/年）就必须把这三条写进文档。
 28c. **打包 DMG：macOS 27 起 `hdiutil create` 已弃用**，新语法 `diskutil image create from --volumeName <名> --format UDZO <源文件夹> <输出.dmg>`（实测可用；同内容 830K vs 旧命令 1.2M）。**打包脚本要自带挂载自检**：`hdiutil attach` 回来确认 `Vitals.app` 与 `Applications` 软链都在、`codesign -v` 通过，再 detach —— 否则发出去的 DMG 少了软链，只有下载者会发现。
