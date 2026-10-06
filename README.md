@@ -110,7 +110,7 @@
 
 ### 下载安装（不用编译）
 
-到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.1.0.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
+到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.2.0.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
 
 > ⚠️ **首次打开会被 Gatekeeper 拦下**：本 App 是 **ad-hoc 签名**（开源项目没有付费的 Apple 开发者账号做公证），双击只会看到「Apple 无法检查其是否包含恶意软件」——在 macOS 26/27 上这是**直接拒绝启动**，不是给个提示让你点继续。放行方式三选一：
 >
@@ -123,10 +123,10 @@
 >
 > **③ 干脆用终端下载安装**（`curl` 不会打隔离属性，所以完全不触发 Gatekeeper）：
 > ```bash
-> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.1.0/Vitals-0.1.0.dmg
+> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.0/Vitals-0.2.0.dmg
 > hdiutil attach /tmp/Vitals.dmg
-> ditto "/Volumes/Vitals 0.1.0/Vitals.app" /Applications/Vitals.app
-> hdiutil detach "/Volumes/Vitals 0.1.0"
+> ditto "/Volumes/Vitals 0.2.0/Vitals.app" /Applications/Vitals.app
+> hdiutil detach "/Volumes/Vitals 0.2.0"
 > open /Applications/Vitals.app
 > ```
 
