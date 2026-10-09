@@ -1,36 +1,43 @@
-# Vitals v0.2.0
+# Vitals v0.2.1
 
-macOS 菜单栏上的**系统工具箱 + 实时监视器**：电源、CPU、内存、存储、网络五大实时面板，外加网络体检、SSH 主机可达性、监听端口、登录项审计与阈值告警。**全部只读、无需 root、不联网上报。**
+修四处会悄悄出错的问题、让内网体检说真话，并新增一条命令行自检。功能面与 v0.2.0 相同：五张卡片 + 60 秒迷你曲线、五个详情页、网络体检、监听端口、SSH 可达性、登录项审计、温度与功耗、历史曲线、阈值告警。
 
 要求：**macOS 14+ / Apple Silicon**。
 
-## 本版新增（相对 v0.1.0）
+## 修正
 
-**菜单栏显示两档可选**——点面板底部的小图标切换，选择会记住（`battery` / `cpuMem`）：
+- **子进程输出不再被截断**：`Shell` 改为并发读管道。旧写法"先等进程退出、再读管道"，输出一旦超过管道缓冲（64KB）就会截断并白等满超时——`sfltool dumpbtm` 实测 58KB，就贴着上限。「服务 · 自启」页在开机自启项多的时候不会再偶发少一半。
+- **PD 身份不再"回流"**：拔电后每 60 秒的定时刷新会把拔电前读到的适配器 VID/PID 写回数据快照（虽然界面暂时看不出来，但 `--dump` 已经露馅）。现在只在接电时刷新。
+- **SSH 配置解析**：支持 tab 分隔（旧版只认空格，tab 写的配置整行被丢掉）与 `Host a b c` 一行多别名（旧版只认第一个）。
+- **历史曲线少读一天文件**：每小时重建曲线时会多读一个用不到的 jsonl，去掉。
 
-- `电池`（默认）：自绘电池图标，可替掉系统自带的电池项
-- `CPU + 内存`：直接在菜单栏常显两个数，如 `27% │ 12.8G`（等宽数字、两段之间带分隔线；2x 屏上按屏幕缩放渲染，字不虚）
+## 网络体检更诚实
 
-**总览面板更紧凑**——底部从 3 行压成 1 行，面板高度减少约 50pt：
+「内网主机（走隧道）」这个标题此前是写死的，现在按**实际路径**生成：
 
-- 「开机自启」压缩成标题行右侧的 mini 开关（悬停有状态提示），不再单独占一行
-- 「服务与自启 →」并入底部状态行
-- 开关的反馈消息（"需在系统设置里允许 Vitals" 等）挂在标题行下方、右对齐
+```
+✅ 内网主机（走隧道 utun2）  192.168.1.50 · 延迟 7 ms
+❌ 内网主机（经 en0）        192.168.1.50 不通
+```
 
-其余功能与 v0.1.0 相同：五张卡片 + 60 秒迷你曲线、五个详情页（CPU / 内存 / 存储 / 网络 / 电源 · Pulse）、网络一键体检九项、监听端口、SSH 可达性（含 `ProxyJump`）、登录项审计、温度与功耗（SMC / IOHID / IOReport）、历史曲线（1h / 24h / 7d / 30d）、阈值告警。
+如果显示「经 en0」而目标本该走隧道，多半是目标地址落在了**你当前 Wi-Fi 的网段**里——本地直连路由比 VPN 推的大网段更精确，会把这一段整个遮蔽在本地网（换个不在本网段的目标地址即可）。
+
+## 新增命令行
+
+`Vitals --selftest`：纯函数自检（路由 CIDR 规范化 / CPU tick 回绕差分 / SSH 配置解析 / BTM 前缀剥离 / 历史聚合 / 格式化），32 条断言，退出码即结果——系统更新后一条命令就能确认这些解析逻辑没被改坏。
 
 ## 安装
 
-1. 下载 `Vitals-0.2.0.dmg`，打开后把 **Vitals.app** 拖进 **Applications**
+1. 下载 `Vitals-0.2.1.dmg`，打开后把 **Vitals.app** 拖进 **Applications**
 2. **首次打开需要放行**（本版是 ad-hoc 签名，没做 Apple 公证）：
    - 图形方式：先双击一次被拦 → 打开「系统设置 → 隐私与安全性」→ 在「安全性」区域点「**仍要打开**」→ 输入密码
    - 终端方式：`xattr -dr com.apple.quarantine /Applications/Vitals.app`
    - 或者改用终端下载安装（`curl` 不打隔离属性，不会触发 Gatekeeper）：
      ```bash
-     curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.0/Vitals-0.2.0.dmg
+     curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.1/Vitals-0.2.1.dmg
      hdiutil attach /tmp/Vitals.dmg
-     ditto "/Volumes/Vitals 0.2.0/Vitals.app" /Applications/Vitals.app
-     hdiutil detach "/Volumes/Vitals 0.2.0"
+     ditto "/Volumes/Vitals 0.2.1/Vitals.app" /Applications/Vitals.app
+     hdiutil detach "/Volumes/Vitals 0.2.1"
      open /Applications/Vitals.app
      ```
 3. **必须从 `/Applications` 运行**：macOS 的菜单栏机制与 Hidden Bar 这类工具只认这里的副本
