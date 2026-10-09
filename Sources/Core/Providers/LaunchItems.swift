@@ -164,7 +164,8 @@ enum LaunchItemsProvider {
     }
 
     /// BTM 的 Identifier 前面会带类型数字（`16.` 守护进程、`8.` 代理、`2.` App 项…），剥掉再比对。
-    private static func normalize(_ identifier: String) -> String {
+    /// 公开（去掉 private）是为了 `--selftest` 能直接断言。
+    static func normalize(_ identifier: String) -> String {
         var text = identifier
         while let dot = text.firstIndex(of: "."), Int(text[text.startIndex..<dot]) != nil {
             text = String(text[text.index(after: dot)...])

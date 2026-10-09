@@ -80,33 +80,37 @@ struct HistoryBundle {
         let records = HistoryStore.shared.records(within: period.seconds)
         guard !records.isEmpty else { return HistoryBundle() }
         let bucket = period.bucketSeconds
-        func series(_ metric: (HistoryRecord) -> Double?) -> [HistoryPoint] {
-            var sums: [Int: Double] = [:]
-            var counts: [Int: Int] = [:]
-            for record in records {
-                guard let value = metric(record) else { continue }   // 缺字段的记录直接跳过，不补 0
-                let key = Int(Double(record.t) / bucket) * Int(bucket)
-                sums[key, default: 0] += value
-                counts[key, default: 0] += 1
-            }
-            return sums.keys.sorted().map { key in
-                HistoryPoint(t: key, value: (sums[key] ?? 0) / Double(counts[key] ?? 1))
-            }
-        }
         var bundle = HistoryBundle()
-        bundle.cpu = series { $0.cpu }
-        bundle.mem = series { $0.mem }
-        bundle.diskRead = series { $0.dr }
-        bundle.diskWrite = series { $0.dw }
-        bundle.netRx = series { $0.nrx }
-        bundle.netTx = series { $0.ntx }
-        bundle.powerIn = series { $0.pin }
-        bundle.powerDis = series { $0.pdis }
-        bundle.cpuTemp = series { $0.cc }
-        bundle.healthOfficial = series { $0.h }
-        bundle.healthRaw = series { $0.hr }
-        bundle.cycleCount = series { $0.cyc }
+        bundle.cpu = aggregate(records, bucket: bucket, metric: { $0.cpu })
+        bundle.mem = aggregate(records, bucket: bucket, metric: { $0.mem })
+        bundle.diskRead = aggregate(records, bucket: bucket, metric: { $0.dr })
+        bundle.diskWrite = aggregate(records, bucket: bucket, metric: { $0.dw })
+        bundle.netRx = aggregate(records, bucket: bucket, metric: { $0.nrx })
+        bundle.netTx = aggregate(records, bucket: bucket, metric: { $0.ntx })
+        bundle.powerIn = aggregate(records, bucket: bucket, metric: { $0.pin })
+        bundle.powerDis = aggregate(records, bucket: bucket, metric: { $0.pdis })
+        bundle.cpuTemp = aggregate(records, bucket: bucket, metric: { $0.cc })
+        bundle.healthOfficial = aggregate(records, bucket: bucket, metric: { $0.h })
+        bundle.healthRaw = aggregate(records, bucket: bucket, metric: { $0.hr })
+        bundle.cycleCount = aggregate(records, bucket: bucket, metric: { $0.cyc })
         return bundle
+    }
+
+    /// 把记录按桶聚合成均值序列（缺字段的记录直接跳过，不补 0）。
+    /// 抽成独立纯函数是为了 `--selftest` 能断言桶边界与缺字段行为。
+    static func aggregate(_ records: [HistoryRecord], bucket: TimeInterval,
+                          metric: (HistoryRecord) -> Double?) -> [HistoryPoint] {
+        var sums: [Int: Double] = [:]
+        var counts: [Int: Int] = [:]
+        for record in records {
+            guard let value = metric(record) else { continue }
+            let key = Int(Double(record.t) / bucket) * Int(bucket)
+            sums[key, default: 0] += value
+            counts[key, default: 0] += 1
+        }
+        return sums.keys.sorted().map { key in
+            HistoryPoint(t: key, value: (sums[key] ?? 0) / Double(counts[key] ?? 1))
+        }
     }
 }
 
@@ -159,12 +163,13 @@ final class HistoryStore {
     // MARK: - 读
 
     /// 取最近 `within` 秒内的记录（按天读文件 + 内存缓存；后台线程也会调，做了锁）。
+    /// 要读的天数 = 窗口天数 + 1（跨 0 点的窗口会碰到前一天，1 小时档也一样）。
     func records(within seconds: TimeInterval) -> [HistoryRecord] {
         let now = Date()
         let cutoff = Int(now.timeIntervalSince1970 - seconds)
         var result: [HistoryRecord] = []
         let days = Int(seconds / 86_400) + 1
-        for offset in 0..<max(1, days + 1) {
+        for offset in 0..<days {
             let day = Int(now.timeIntervalSince1970) - offset * 86_400
             result.append(contentsOf: cachedRecords(for: day))
         }

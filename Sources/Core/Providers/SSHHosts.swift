@@ -18,51 +18,51 @@ struct SSHHostProbe: Codable, Identifiable {
 
 enum SSHHostsProvider {
     /// 解析 `~/.ssh/config`：Host / HostName / User / Port / ProxyJump。
-    /// 带通配符的 Host 块（`Host *`、`Host 192.168.*`）跳过——它们不是可连接的目标。
+    /// - 关键字与值之间**空格和 tab 都合法**（只按空格切会把 tab 配置整行丢掉）
+    /// - `Host a b c` 一行多别名：每个别名各建一条（块内的 HostName/Port 等对全部别名生效）
+    /// - 带通配符（`*`/`?`）的别名跳过——它们不是可连接的目标
     static func parse() -> [SSHHostProbe] {
         let path = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh/config").path
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
+        return parse(text: text)
+    }
 
+    static func parse(text: String) -> [SSHHostProbe] {
         var hosts: [SSHHostProbe] = []
-        var current: SSHHostProbe?
+        var current: [SSHHostProbe] = []
+        func flush() {
+            hosts.append(contentsOf: current)
+            current = []
+        }
         for rawLine in text.split(separator: "\n") {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
-            let parts = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-            guard parts.count == 2 else {
-                // `Host name` 后面也可能只有别名（无参数行）
-                if line.lowercased().hasPrefix("host ") {
-                    let alias = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                    if let current { hosts.append(current) }
-                    current = alias.contains("*") || alias.contains("?")
-                        ? nil
-                        : SSHHostProbe(alias: alias, hostName: alias)
-                }
-                continue
-            }
-            let key = parts[0].lowercased()
-            let value = parts[1].trimmingCharacters(in: .whitespaces)
+            let parts = line.split(maxSplits: 1, omittingEmptySubsequences: true,
+                                   whereSeparator: { $0 == " " || $0 == "\t" })
+            guard let key = parts.first?.lowercased() else { continue }
+            let value = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
             switch key {
             case "host":
-                if let current { hosts.append(current) }
-                let alias = value.split(separator: " ").first.map(String.init) ?? value
-                current = alias.contains("*") || alias.contains("?")
-                    ? nil
-                    : SSHHostProbe(alias: alias, hostName: alias)
+                flush()
+                let aliases = value.split(whereSeparator: { $0 == " " || $0 == "\t" }).map(String.init)
+                current = aliases.filter { !$0.contains("*") && !$0.contains("?") }
+                    .map { SSHHostProbe(alias: $0, hostName: $0) }
             case "hostname":
-                current?.hostName = value
+                for index in current.indices { current[index].hostName = value }
             case "user":
-                current?.user = value
+                for index in current.indices { current[index].user = value }
             case "port":
-                current?.port = Int(value) ?? 22
+                for index in current.indices { current[index].port = Int(value) ?? 22 }
             case "proxyjump":
-                current?.jump = value
-                current?.note = "经 \(value) 跳板（ssh -J 探测）"
+                for index in current.indices {
+                    current[index].jump = value
+                    current[index].note = "经 \(value) 跳板（ssh -J 探测）"
+                }
             default:
                 break
             }
         }
-        if let current { hosts.append(current) }
+        flush()
         return hosts
     }
 

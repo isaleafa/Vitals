@@ -57,6 +57,11 @@ struct VitalsApp: App {
             exit(0)
         }
 
+        // 纯函数自检：`Vitals --selftest`（路由/CPU 差分/SSH 解析/历史聚合的断言，改完解析逻辑跑一下）
+        if CommandLine.arguments.contains("--selftest") {
+            exit(SelfTest.run())
+        }
+
         // 登录项 / 后台服务（命令行）：`Vitals --launch-items`
         if CommandLine.arguments.contains("--launch-items") {
             let items = LaunchItemsProvider.read()
@@ -156,7 +161,8 @@ struct VitalsApp: App {
             for item in NetworkCheckProvider.items() {
                 let result = NetworkCheckProvider.run(item.id, proxy: proxy)
                 let symbol = result.status == .ok ? "✅" : (result.status == .skipped ? "－" : "❌")
-                print("  " + item.title.padding(toLength: 20, withPad: " ", startingAt: 0) + symbol + " " + result.summary)
+                // 用 result.title：内网那项的标题是按实际路径算的（走隧道 / 经 en0）
+                print("  " + result.title.padding(toLength: 20, withPad: " ", startingAt: 0) + symbol + " " + result.summary)
             }
             exit(0)
         }

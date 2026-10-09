@@ -65,7 +65,7 @@
 
 ```
 ✅ 默认网关          10.0.0.1 · 延迟 3 ms（经 en0）
-✅ 内网主机（走隧道）   192.168.1.50 · 延迟 7 ms（经 utun2）
+✅ 内网主机（走隧道 utun2）  192.168.1.50 · 延迟 7 ms
 ✅ 公网（国内 ping）   223.5.5.5 · 延迟 7 ms（经 en0）
 ✅ DNS 解析          www.apple.com → 211.95.51.15（8 ms）
 ✅ 代理 · Google     HTTP 204 · 477 ms（经 127.0.0.1:7897）
@@ -77,6 +77,10 @@
 
 内网探测目标默认是示例地址 `192.168.1.50`，改成你自己的：
 `defaults write top.liyi830.vitals intranetHost 192.168.10.50`（改完立刻生效）
+
+> 那一项的标题会按**实际路径**写：真走隧道显示 `内网主机（走隧道 utun2）`，否则显示 `内网主机（经 en0）`。
+> 如果它写着「经 en0」而你的目标本该走隧道，多半是目标地址落在了**你当前 Wi-Fi 的网段**里——本地直连路由
+> 比 VPN 推的大网段更精确，会把这一段整个遮蔽在本地网，那些地址永远进不了隧道（换个不在本网段的目标即可）。
 
 「代理」三项专门用来确认**代理链路是否工作**（这些站直连本就不通，只有代理正常才通），「直连」两项作对照。
 
@@ -110,7 +114,7 @@
 
 ### 下载安装（不用编译）
 
-到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.2.0.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
+到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.2.1.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
 
 > ⚠️ **首次打开会被 Gatekeeper 拦下**：本 App 是 **ad-hoc 签名**（开源项目没有付费的 Apple 开发者账号做公证），双击只会看到「Apple 无法检查其是否包含恶意软件」——在 macOS 26/27 上这是**直接拒绝启动**，不是给个提示让你点继续。放行方式三选一：
 >
@@ -123,10 +127,10 @@
 >
 > **③ 干脆用终端下载安装**（`curl` 不会打隔离属性，所以完全不触发 Gatekeeper）：
 > ```bash
-> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.0/Vitals-0.2.0.dmg
+> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.1/Vitals-0.2.1.dmg
 > hdiutil attach /tmp/Vitals.dmg
-> ditto "/Volumes/Vitals 0.2.0/Vitals.app" /Applications/Vitals.app
-> hdiutil detach "/Volumes/Vitals 0.2.0"
+> ditto "/Volumes/Vitals 0.2.1/Vitals.app" /Applications/Vitals.app
+> hdiutil detach "/Volumes/Vitals 0.2.1"
 > open /Applications/Vitals.app
 > ```
 
@@ -184,6 +188,7 @@ Vitals 不装驱动、不调 `sudo`，数据全部来自系统自带接口。下
 | 命令 | 作用 |
 |---|---|
 | `Vitals --dump` | 打印一帧完整 JSON 快照（用于对账） |
+| `Vitals --selftest` | 纯函数自检（路由规范化 / CPU 回绕差分 / SSH 解析 / BTM 前缀 / 历史聚合）|
 | `Vitals --bench [N]` | 逐 Provider 测采集耗时 |
 | `Vitals --sensors` | 列出全部温度传感器（名字 + 温度）|
 | `Vitals --smc` | SMC 温度键（CPU/GPU 分组，与 macmon 口径一致）|

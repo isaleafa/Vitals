@@ -10,7 +10,7 @@ struct RouteEntry: Codable, Identifiable, Hashable {
     var id: String { "\(dest)|\(iface)|\(gateway)" }
     var isHost: Bool { flags.contains("H") }
     var isViaGateway: Bool { flags.contains("G") }
-    var isTunnel: Bool { iface.hasPrefix("utun") || iface.hasPrefix("gif") || iface.hasPrefix("ipsec") }
+    var isTunnel: Bool { RoutesProvider.isTunnelInterface(iface) }
 
     var kindText: String {
         if isHost { return "主机" }
@@ -20,6 +20,11 @@ struct RouteEntry: Codable, Identifiable, Hashable {
 }
 
 enum RoutesProvider {
+    /// 隧道类接口名（VPN / 隧道）。路由表着色与网络体检的"走隧道"判定共用这一份规则。
+    static func isTunnelInterface(_ name: String) -> Bool {
+        name.hasPrefix("utun") || name.hasPrefix("gif") || name.hasPrefix("ipsec")
+    }
+
     /// netstat -rn 实测 6ms，够快；原生实现建议改 sysctl NET_RT_DUMP。
     static func read(family: String = "inet") -> [RouteEntry] {
         let output = Shell.run("/usr/sbin/netstat", ["-rn", "-f", family], timeout: 2)

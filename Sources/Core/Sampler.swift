@@ -166,8 +166,9 @@ final class Sampler {
             }
         }
 
-        // 低频 / 按需项：全部转到后台
-        if tickCount == 1 || tickCount % 60 == 0 { refreshPDIdentity() }
+        // 低频 / 按需项：全部转到后台。PD 身份只在接电时刷：拔电后 PDIdentity.read()
+        // 会返回拔电前的旧缓存，别让它流回快照（pitfall 19：拔电不显示适配器信息）
+        if snapshot.power.externalPower, tickCount == 1 || tickCount % 60 == 0 { refreshPDIdentity() }
         if tickCount == 2 || tickCount % 300 == 0 { refreshOfficialHealth() }
 
         // 页面刚打开（开关 false→true）：立刻采一次，别让用户对着"读取中…"等 30 秒

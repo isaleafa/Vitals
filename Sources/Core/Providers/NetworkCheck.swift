@@ -29,7 +29,7 @@ enum NetworkCheckProvider {
     static func items() -> [Item] {
         var list = [
             Item(id: "gateway", title: "默认网关"),
-            Item(id: "intranet", title: "内网主机（走隧道）"),
+            Item(id: "intranet", title: "内网主机"),
             Item(id: "public", title: "公网（国内 ping）"),
             Item(id: "dns", title: "DNS 解析"),
         ]
@@ -66,12 +66,15 @@ enum NetworkCheckProvider {
                 ? "\(gateway) · 延迟 \(format(ping.ms))（经 \(interface(to: gateway) ?? "?")）"
                 : "\(gateway) 不通"
         case "intranet":
+            let route = interface(to: intranetHost)
+            // 标题按**实际路径**写：目标落在本地网段时会被本地 /24 遮蔽（比 VPN 推的大网段更精确），
+            // 永远进不了隧道——写死"走隧道"会误导。接口信息也移到标题里，摘要不再重复
+            result.title = "内网主机（\(pathText(route))）"
             let ping = pingLatency(intranetHost)
-            let route = interface(to: intranetHost) ?? "?"
             result.status = ping.ok ? .ok : .fail
             result.summary = ping.ok
-                ? "\(intranetHost) · 延迟 \(format(ping.ms))（经 \(route)）"
-                : "\(intranetHost) 不通（经 \(route)）"
+                ? "\(intranetHost) · 延迟 \(format(ping.ms))"
+                : "\(intranetHost) 不通"
         case "public":
             let ping = pingLatency(publicHost)
             result.status = ping.ok ? .ok : .fail
@@ -116,6 +119,12 @@ enum NetworkCheckProvider {
     }
 
     // MARK: - 底层探测
+
+    /// 目标实际走哪条路 → 展示用短语：隧道接口写「走隧道 utun7」，其余写「经 en0」。
+    static func pathText(_ iface: String?) -> String {
+        guard let iface, !iface.isEmpty else { return "路径未知" }
+        return RoutesProvider.isTunnelInterface(iface) ? "走隧道 \(iface)" : "经 \(iface)"
+    }
 
     static func defaultGateway() -> String? {
         let output = Shell.run("/sbin/route", ["-n", "get", "default"], timeout: 2)
