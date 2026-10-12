@@ -29,7 +29,13 @@ struct SparklineChart: View {
                             path.addLine(to: CGPoint(x: points[points.count - 1].x, y: geo.size.height))
                             path.closeSubpath()
                         }
-                        .fill(only.color.opacity(0.14))
+                        .fill(
+                            LinearGradient(
+                                colors: [only.color.opacity(0.28), only.color.opacity(0.03)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                     }
                 }
                 ForEach(Array(series.enumerated()), id: \.offset) { _, item in
@@ -39,7 +45,7 @@ struct SparklineChart: View {
                         path.move(to: first)
                         for point in points.dropFirst() { path.addLine(to: point) }
                     }
-                    .stroke(item.color, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                    .stroke(item.color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
             }
         }

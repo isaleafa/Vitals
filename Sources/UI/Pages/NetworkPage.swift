@@ -84,6 +84,61 @@ struct NetworkPage: View {
                 }
             }
 
+            if let wifi = state.snapshot.net.wifi {
+                SectionBox(title: "无线局域网 · 射频链路（\(wifi.interfaceName)）") {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("协商物理速率")
+                                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                            Text(wifi.txRateText)
+                                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.primary)
+                        }
+                        Spacer()
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("信号强度 (RSSI)")
+                                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                            HStack(spacing: 4) {
+                                Text(wifi.rssiText)
+                                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                Text("(\(wifi.quality))")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(wifi.quality == "极佳" || wifi.quality == "良好" ? .green : .orange)
+                            }
+                        }
+                        Spacer()
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("信噪比 (SNR)")
+                                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                            Text(wifi.snrText)
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.teal)
+                        }
+                        Spacer()
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("噪声基底")
+                                .font(.system(size: 10)).foregroundStyle(.tertiary)
+                            Text(wifi.noiseText)
+                                .font(.system(size: 14, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                        Text(wifi.channelSummary)
+                            .font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        Spacer()
+                        if let ssid = wifi.ssid {
+                            Text(ssid).font(.system(size: 11, weight: .medium)).foregroundStyle(.primary)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+
             SectionBox(title: "接口（★ = 承载默认路由）") {
                 let list = model.showIdle ? state.snapshot.net.allInterfaces : state.snapshot.net.interfaces
                 HStack {
@@ -128,9 +183,16 @@ struct NetworkPage: View {
                             Text(note).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1)
                         }
                         Spacer(minLength: 6)
-                        Text(service.portsText).font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(service.portsText, forType: .string)
+                            AppState.shared.showToast("已复制端口 \(service.portsText)")
+                        } label: {
+                            Text(service.portsText).font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("点击复制端口")
                     }
                 }
             }
@@ -150,7 +212,15 @@ struct NetworkPage: View {
                         Image(systemName: Self.probeIcon(host.reachable))
                             .font(.system(size: 11))
                             .foregroundStyle(Self.probeColor(host.reachable))
-                        Text(host.alias).font(.system(size: 12, weight: .medium, design: .monospaced))
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString("ssh \(host.alias)", forType: .string)
+                            AppState.shared.showToast("已复制 ssh \(host.alias)")
+                        } label: {
+                            Text(host.alias).font(.system(size: 12, weight: .medium, design: .monospaced))
+                        }
+                        .buttonStyle(.plain)
+                        .help("点击复制连接命令")
                         Text(host.target).font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary)
                         if let note = host.note {
                             Text(note).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1)
@@ -265,13 +335,36 @@ struct NetworkPage: View {
             HStack(spacing: 8) {
                 let addressText = iface.addrs.joined(separator: "  ")
                     + (iface.peer.map { "  → \($0)" } ?? "")
-                Text(addressText.isEmpty ? "（无地址）" : addressText)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.middle)
+                if !addressText.isEmpty {
+                    Button {
+                        let toCopy = iface.addrs.first ?? addressText
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(toCopy, forType: .string)
+                        AppState.shared.showToast("已复制 IP (\(toCopy))")
+                    } label: {
+                        Text(addressText)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    .buttonStyle(.plain)
+                    .help("点击复制 IP 地址")
+                } else {
+                    Text("（无地址）")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
                 Spacer(minLength: 0)
                 if let mac = iface.mac {
-                    Text(mac).font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(mac, forType: .string)
+                        AppState.shared.showToast("已复制 MAC 地址")
+                    } label: {
+                        Text(mac).font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("点击复制 MAC")
                 }
                 if iface.mtu > 0 {
                     Text("mtu \(iface.mtu)").font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)

@@ -23,6 +23,29 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(menuBarStyle.rawValue, forKey: "menuBarStyle") }
     }
 
+    /// 全局快捷键 ⌥V 开关持久化（默认开启）
+    @Published var enableGlobalHotKey: Bool =
+        UserDefaults.standard.object(forKey: "enableGlobalHotKey") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(enableGlobalHotKey, forKey: "enableGlobalHotKey")
+            GlobalHotKey.shared.updateRegistration(enabled: enableGlobalHotKey)
+        }
+    }
+
+    /// 轻量级 Toast 提示（如"已复制 IP"），自动定时淡出
+    @Published var toastMessage: String?
+    private var toastWorkItem: DispatchWorkItem?
+
+    func showToast(_ message: String) {
+        toastWorkItem?.cancel()
+        toastMessage = message
+        let item = DispatchWorkItem { [weak self] in
+            self?.toastMessage = nil
+        }
+        toastWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: item)
+    }
+
     // 60 点迷你曲线（1 秒一个点）
     @Published var cpuHistory: [Double] = []
     @Published var memHistory: [Double] = []          // 已用 GB

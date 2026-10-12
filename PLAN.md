@@ -280,6 +280,11 @@ python3 probes/power-probe.py --watch 5                                # 电源�
   ⚠️ **坑 2：键要按小端写入缓冲区**（macmon 把键打包成大端 u32 再写内存，在小端机上就是反序字节）；写成大端 → 每个键都返回 132「键不存在」（我据此**误判成"SMC 在这台机不可用"**）。键名列举（command 8）的输出同样要反转回来。
 - 💡 调试这类私有 API：探针开场 `setbuf(stdout, nil)`（崩溃/中断时不留缓冲丢失）；**先读成熟实现源码**（macmon `src_lib/sources.rs`+`metrics.rs` 是权威参考），`macmon debug` 还能直接当"对照仪器"打印每条通道/传感器的原始读数。
 
+30. **菜单栏数字动态测量必导致状态栏横向抖动（2026-10-12）**：如果用 `(cpuText as NSString).size(...)` 每帧按实际文字动态计算 `NSImage` 宽度并把分隔线居中，只要 CPU 字符数跳变（9% 变为 11%、或 99% 变为 100%），或内存个位数变两位数，整张图宽度就会变化 1~8 像素，macOS 菜单栏随之频繁重排左侧所有图标。正确做法：**固定槽位体系**。CPU 槽固定 34pt（右对齐锚定中央），中央分隔线 X 绝对锚定，内存槽固定 36pt（左对齐锚定中央），整图锁死 83.0pt。无论数字如何波动，整条菜单栏 0 抖动。
+31. **本地构建的 `.app` 会被 LaunchServices / Raycast 识别为重复应用（2026-10-12）**：macOS 的 `lsd` 会递归监控 `~` 目录，只要发现以 `.app` 结尾的文件夹即注册进系统应用表。仅靠 `.noindex` 只能阻止 Spotlight 索引，阻止不了 LaunchServices。正确做法：`scripts/build.sh` 编译完成并 codesign 后，直接 `ditto` 同步至 `/Applications/Vitals.app` 并清理本地构建目录内的中间 `.app`，全盘永远只留一份已安装的正本。
+32. **全局快捷键免无障碍（Accessibility）权限方案（2026-10-12）**：`NSEvent.addGlobalMonitorForEvents` 必须要求用户在系统设置中授予无障碍权限；而传统的 Carbon API `RegisterEventHotKey` + `InstallEventHandler` **完全不需要任何系统授权**，普通未提权进程即可监听特定热键（`⌥ + V`），对独立小工具来说体验好得多。
+33. **CoreWLAN 权限边界（macOS 14+）**：通过 `CWWiFiClient.shared().interface()` 读取 Wi-Fi 状态时，读取 `ssid()` 和 `bssid()` 在 macOS 14+ 必须要求定位权限（否则返回 nil/空）；但所有底层射频指标——**协商物理速率（Tx Rate）、信号强度（RSSI）、信噪比（SNR）、噪声基底、信道编号、频段（2.4/5/6GHz）、频宽（20/40/80/160MHz）全部不需要定位权限**，可零弹窗免授权直接秒级读取。
+
 ### D. 待定决策（括号内为我的默认建议）
 
 - 装不装 Xcode（**不装**，先用 CLI 工具链）

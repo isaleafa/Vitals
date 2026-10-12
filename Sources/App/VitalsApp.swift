@@ -25,6 +25,12 @@ struct VitalsApp: App {
         sampler = Sampler(state: AppState.shared)
         sampler.start()
         AppState.shared.refreshLoginItem()
+
+        // 全局快捷键 ⌥V 呼出/收起快捷总览
+        GlobalHotKey.shared.setup {
+            DetailWindows.open("overview", state: AppState.shared)
+        }
+
         // 打开网络页就自动跑一次体检（不用手点）
         AppState.shared.onDetailPageOpened = { page in
             if page == "net" {
@@ -221,9 +227,9 @@ struct VitalsApp: App {
 
     private static func makePreviewWindow(page: String) -> NSWindow {
         let size = DetailWindows.size(of: page)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-                              styleMask: [.titled, .closable, .resizable],
-                              backing: .buffered, defer: false)
+        let window = DetailWindow(contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
+                                  styleMask: [.titled, .closable, .resizable],
+                                  backing: .buffered, defer: false)
         window.title = "Vitals 预览 · \(page)"
         window.contentView = NSHostingView(rootView: DetailWindows.view(of: page, state: .shared))
         // 固定钉在主屏左上角（便于截图核对；center() 在多屏下不可预期）

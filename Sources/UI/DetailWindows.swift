@@ -7,10 +7,66 @@ import SwiftUI
 /// （accessory 应用尤其容易被别的窗口压住）。自己开 `NSWindow` 就能做到：
 /// **在鼠标所在那块屏幕的正中央出现 + 强制提到最前**，而且同一个页面再次点击时复用已有窗口。
 @MainActor
+/// 详情窗口子类：
+/// 1. 确保在 Accessory App（LSUIElement）下能正常成为 Key/Main Window（红黄绿灯正常激活亮起）；
+/// 2. 拦截 ⌘W 和 Esc 键，无需系统菜单直接触发 performClose 关闭窗口。
+final class DetailWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // ⌘W 关闭当前窗口
+        if event.modifierFlags.contains(.command),
+           let chars = event.charactersIgnoringModifiers,
+           chars.lowercased() == "w" {
+            performClose(nil)
+            return true
+        }
+        // Esc 关闭当前窗口（keyCode 53）
+        if event.keyCode == 53 {
+            performClose(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            performClose(nil)
+            return
+        }
+        super.keyDown(with: event)
+    }
+}
+
+/// 详情窗口管理。
+///
+/// 为什么不用 SwiftUI 的 `Window` 场景：它不给控制窗口位置，也不能保证把窗口提到最前
+/// （accessory 应用尤其容易被别的窗口压住）。自己开 `NSWindow` 就能做到：
+/// **在鼠标所在那块屏幕的正中央出现 + 强制提到最前**，而且同一个页面再次点击时复用已有窗口。
+@MainActor
 enum DetailWindows {
     private static var opened: [String: NSWindow] = [:]
+    /// 捕获到的菜单栏总览窗口引用
+    static weak var overviewWindow: NSWindow?
+
+    /// 关闭菜单栏总览面板（若它处于显示状态）
+    static func closeOverviewPanel() {
+        overviewWindow?.orderOut(nil)
+        for window in NSApp.windows where !opened.values.contains(window) && window.isVisible {
+            window.orderOut(nil)
+        }
+    }
 
     static func open(_ page: String, state: AppState) {
+        // 打开任意详情窗口时，立即收起右上角的菜单栏总览面板
+        closeOverviewPanel()
+
+        if page == "overview", let window = opened["overview"], window.isVisible && window.isKeyWindow {
+            window.orderOut(nil)
+            return
+        }
+
         if let window = opened[page], window.isVisible {
             bringToFront(window)
             return
@@ -26,10 +82,14 @@ enum DetailWindows {
     }
 
     private static func makeWindow(page: String, state: AppState) -> NSWindow {
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size(of: page)),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered, defer: false)
+        let isOverview = page == "overview"
+        let window = DetailWindow(contentRect: NSRect(origin: .zero, size: size(of: page)),
+                                  styleMask: isOverview ? [.titled, .closable] : [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: false)
         window.title = title(of: page)
+        if isOverview {
+            window.level = .floating
+        }
         window.contentView = NSHostingView(rootView: view(of: page, state: state))
         window.isReleasedWhenClosed = false   // 关掉后还能复用（我们持有引用）
         return window
@@ -41,6 +101,7 @@ enum DetailWindows {
         case "power": return NSSize(width: 460, height: 700)
         case "services": return NSSize(width: 560, height: 680)
         case "cpu": return NSSize(width: 500, height: 620)
+        case "overview": return NSSize(width: 360, height: 500)
         default: return NSSize(width: 500, height: 560)
         }
     }
@@ -53,6 +114,7 @@ enum DetailWindows {
         case "net": return "网络"
         case "power": return "电源 · Pulse"
         case "services": return "服务 · 自启"
+        case "overview": return "Vitals · 快捷总览"
         default: return "Vitals"
         }
     }
@@ -84,5 +146,6 @@ enum DetailWindows {
     private static func bringToFront(_ window: NSWindow) {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        window.makeMain()
     }
 }

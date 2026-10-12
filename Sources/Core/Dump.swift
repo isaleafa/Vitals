@@ -20,6 +20,7 @@ enum DumpMode {
             snapshot.power.healthOfficialPercent = health.percent
             snapshot.power.healthOfficialText = health.text
         }
+        snapshot.net.wifi = WiFiProvider.read()
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]

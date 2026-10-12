@@ -28,21 +28,23 @@ struct OverviewPanel: View {
             card("cpu") {
                 MetricCard(title: "CPU", icon: "cpu",
                            value: Fmt.pct0(state.snapshot.cpu.total),
-                           detail: "负载 \(loadText) · \(state.snapshot.cpu.perCore.count) 核",
+                           detail: "负载 \(loadText) · \(state.snapshot.cpu.perCore.count)核",
                            color: state.alerts.contains { $0.hasPrefix("CPU") } ? .red : .blue,
                            history: state.cpuHistory)
             }
 
             card("mem") {
                 MetricCard(title: "内存", icon: "memorychip",
-                           value: "\(Fmt.gb(state.snapshot.memory.usedBytes)) / \(Fmt.gb(state.snapshot.memory.totalBytes)) GB",
+                           value: Fmt.gb(state.snapshot.memory.usedBytes),
+                           subValue: "/ \(Fmt.gb(state.snapshot.memory.totalBytes)) GB",
                            detail: "\(state.snapshot.memory.pressureText) · 压缩 \(Fmt.gb(state.snapshot.memory.compressedBytes))G · 交换 \(state.snapshot.memory.swapUsedBytes / 1_048_576)M",
                            color: memoryColor, history: state.memHistory)
             }
 
             card("disk") {
                 MetricCard(title: "存储", icon: "internaldrive",
-                           value: "\(Fmt.bytes(usedDisk)) / \(Fmt.bytes(state.snapshot.disk.totalBytes))",
+                           value: Fmt.bytes(usedDisk),
+                           subValue: "/ \(Fmt.bytes(state.snapshot.disk.totalBytes))",
                            detail: "读 \(Fmt.rate(state.snapshot.disk.readBps)) · 写 \(Fmt.rate(state.snapshot.disk.writeBps)) · \(Int(state.snapshot.disk.iops)) IOPS",
                            color: state.alerts.contains { $0.hasPrefix("磁盘") } ? .red : .green,
                            history: state.diskHistory)
@@ -57,7 +59,8 @@ struct OverviewPanel: View {
 
             card("power") {
                 MetricCard(title: "电源 · Pulse", icon: state.menuBarSymbol,
-                           value: String(format: "%.1f W", state.snapshot.power.effectiveWatts),
+                           value: String(format: "%.1f", state.snapshot.power.effectiveWatts),
+                           subValue: "W",
                            detail: powerDetail,
                            color: powerColor, history: state.powerHistory)
             }
@@ -65,7 +68,15 @@ struct OverviewPanel: View {
             footer
         }
         .padding(12)
-        .frame(width: 330)
+        .frame(width: 345)
+        .background(WindowAccessor { window in
+            DetailWindows.overviewWindow = window
+            NotificationCenter.default.removeObserver(window, name: NSWindow.didResignKeyNotification, object: window)
+            NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { _ in
+                // 点击外部失焦时自动收起总览面板
+                window.orderOut(nil)
+            }
+        })
     }
 
     /// 整张卡片当按钮：点开对应详情窗口（自己管窗口：居中 + 提到最前）。
@@ -75,7 +86,7 @@ struct OverviewPanel: View {
         } label: {
             content()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CardButtonStyle())
         .help("查看详情")
     }
 
@@ -113,9 +124,13 @@ struct OverviewPanel: View {
 
     private var powerDetail: String {
         let p = state.snapshot.power
-        var parts = [p.powerLabel, "\(p.charge)%", p.externalPower ? "已接通" : "电池供电"]
-        if p.charging { parts.append("充电中") }
-        if let w = p.adapterWatts { parts.append("适配器 \(w)W") }
+        var parts: [String] = []
+        if p.externalPower {
+            parts.append("\(p.charge)%\(p.charging ? " 充电中" : "")")
+            if let w = p.adapterWatts { parts.append("\(w)W 适配器") }
+        } else {
+            parts.append("放电中 · \(p.charge)%")
+        }
         if let c = p.cycles { parts.append("循环 \(c)") }
         return parts.joined(separator: " · ")
     }
@@ -125,13 +140,15 @@ struct OverviewPanel: View {
     private var header: some View {
         VStack(alignment: .trailing, spacing: 2) {
             HStack(spacing: 6) {
-                Image(systemName: "gauge").font(.system(size: 11)).foregroundStyle(.blue)
+                Image(systemName: "gauge")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.blue)
                 Text("Vitals").font(.system(size: 12, weight: .semibold))
                 Text("Mac 工具箱").font(.system(size: 10)).foregroundStyle(.tertiary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text("运行 \(Fmt.duration(state.snapshot.cpu.uptime))")
-                    .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize()
+                    .font(.system(size: 10)).foregroundStyle(.secondary).monospacedDigit().fixedSize()
                 loginToggle
             }
             if let message = state.loginItemMessage {
@@ -157,11 +174,15 @@ struct OverviewPanel: View {
     /// 菜单栏显示什么：两档预设二选一（打勾的就是当前项）。
     private var menuBarStyleMenu: some View {
         Menu {
-            ForEach(MenuBarStyle.allCases) { style in
-                Toggle(style.title, isOn: Binding(
-                    get: { state.menuBarStyle == style },
-                    set: { if $0 { state.menuBarStyle = style } }))
+            Section("菜单栏显示") {
+                ForEach(MenuBarStyle.allCases) { style in
+                    Toggle(style.title, isOn: Binding(
+                        get: { state.menuBarStyle == style },
+                        set: { if $0 { state.menuBarStyle = style } }))
+                }
             }
+            Divider()
+            Toggle("全局快捷键 (⌥V)", isOn: $state.enableGlobalHotKey)
         } label: {
             Image(systemName: "rectangle.topthird.inset.filled")
                 .font(.system(size: 11))
@@ -178,18 +199,22 @@ struct OverviewPanel: View {
         HStack(spacing: 8) {
             Text("更新于 \(Self.timeText.string(from: state.snapshot.time))")
                 .font(.system(size: 10)).foregroundStyle(.tertiary).monospacedDigit()
-            Spacer()
-            Text("点卡片看详情").font(.system(size: 10)).foregroundStyle(.tertiary)
+                .fixedSize()
+            Spacer(minLength: 4)
             menuBarStyleMenu
             Button("服务与自启 →") { DetailWindows.open("services", state: state) }
                 .buttonStyle(.plain)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
+            Button("收起") { DetailWindows.closeOverviewPanel() }
+                .buttonStyle(.plain)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
             Button("退出") { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .font(.system(size: 10)).foregroundStyle(.secondary)
         }
-        .padding(.top, 1)
+        .padding(.top, 2)
     }
 
     private static let timeText: DateFormatter = {
@@ -199,42 +224,96 @@ struct OverviewPanel: View {
     }()
 }
 
+/// 获取宿主 NSWindow 的轻量级桥接
+private struct WindowAccessor: NSViewRepresentable {
+    let onWindow: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                onWindow(window)
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if let window = nsView.window {
+            onWindow(window)
+        }
+    }
+}
+
+/// 卡片按压微触感反馈样式
+private struct CardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
+            .opacity(configuration.isPressed ? 0.82 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 /// 单张指标卡：标题行 + （大数值｜迷你曲线）。
 struct MetricCard: View {
     let title: String
     let icon: String
     let value: String
+    var subValue: String? = nil
     let detail: String
     let color: Color
     let history: [Double]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 10)).foregroundStyle(color)
+                Image(systemName: icon).font(.system(size: 10, weight: .medium)).foregroundStyle(color)
                 Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                 Spacer()
                 Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.tertiary.opacity(0.6))
             }
-            HStack(alignment: .center, spacing: 10) {
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .fixedSize()
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                    if let sub = subValue {
+                        Text(sub)
+                            .font(.system(size: 11, weight: .regular, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
+                }
+                .fixedSize()
+
+                Spacer(minLength: 4)
+
                 Sparkline(values: history, color: color)
                     .frame(height: 22)
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(color.opacity(0.07))
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [color.opacity(0.09), color.opacity(0.05)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(color.opacity(0.18), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(color.opacity(0.20), lineWidth: 0.5)
         )
     }
 }

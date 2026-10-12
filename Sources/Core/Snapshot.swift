@@ -69,6 +69,7 @@ struct NetIface: Codable, Identifiable {
 struct NetStats: Codable {
     var interfaces: [NetIface] = []      // 活跃接口（过滤后）
     var allInterfaces: [NetIface] = []   // 全部接口（页面可选显示，用来看清"空闲隧道"）
+    var wifi: WiFiStats?                 // Wi-Fi 射频指标（若当前连接了 Wi-Fi）
 }
 
 /// 电源页要的档位（PDO）：电压 mV / 电流 mA。

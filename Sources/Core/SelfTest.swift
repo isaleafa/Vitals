@@ -91,6 +91,20 @@ enum SelfTest {
         equal("MenuBarStyle 往返", MenuBarStyle(rawValue: MenuBarStyle.cpuMem.rawValue) == .cpuMem, true)
         equal("未知样式回默认", MenuBarStyle(rawValue: "bogus") == nil, true)
 
+        print("菜单栏 CPU+内存宽度恒定（杜绝数字跳动导致菜单栏抖动）：")
+        let w1 = MenuBarIcon.cpuMemoryImage(cpu: 0, memoryGB: 8.2).size.width
+        let w2 = MenuBarIcon.cpuMemoryImage(cpu: 9, memoryGB: 8.2).size.width
+        let w3 = MenuBarIcon.cpuMemoryImage(cpu: 11, memoryGB: 12.8).size.width
+        let w4 = MenuBarIcon.cpuMemoryImage(cpu: 22, memoryGB: 12.8).size.width
+        let w5 = MenuBarIcon.cpuMemoryImage(cpu: 99, memoryGB: 15.9).size.width
+        let w6 = MenuBarIcon.cpuMemoryImage(cpu: 100, memoryGB: 16.0).size.width
+        check("不同数值下宽度均恒定不变 (宽 \(w1)pt)", w1 == w2 && w2 == w3 && w3 == w4 && w4 == w5 && w5 == w6)
+
+        print("Wi-Fi 射频统计模型（CoreWLAN 解析）：")
+        let wifi = WiFiStats(interfaceName: "en0", ssid: "TestNetwork", rssi: -50, noise: -90, snr: 40, txRate: 300, channel: 153, band: "5 GHz", channelWidth: "80 MHz", quality: "极佳")
+        equal("wifi.snr", wifi.snr, 40)
+        equal("wifi.channelSummary", wifi.channelSummary, "信道 153 · 5 GHz · 80 MHz")
+
         print(failed == 0 ? "✓ 全部通过" : "✗ \(failed) 项失败")
         return failed == 0 ? 0 : 1
     }

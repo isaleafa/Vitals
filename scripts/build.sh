@@ -14,6 +14,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 echo "compiling…"
 # 注意：@main 必须配 -parse-as-library，否则报 "top-level code"
 swiftc -O -parse-as-library -sdk "$SDK" -target "$TARGET" \
+    -module-cache-path build/cache -Xcc -fmodules-cache-path=build/cache \
     -o "$APP/Contents/MacOS/Vitals" \
     $(find Sources -name '*.swift' | sort)
 
@@ -37,8 +38,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleExecutable</key><string>Vitals</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleShortVersionString</key><string>0.2.1</string>
-    <key>CFBundleVersion</key><string>3</string>
+    <key>CFBundleShortVersionString</key><string>0.2.2</string>
+    <key>CFBundleVersion</key><string>4</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
@@ -51,6 +52,13 @@ PLIST
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 \
     || echo "warning: ad-hoc codesign failed; the app will still run"
 
-echo "built $APP"
-echo "  跑一帧数据核对：  $APP/Contents/MacOS/Vitals --dump"
-echo "  启动菜单栏 App：  open $APP"
+# 自动安装部署到 /Applications，并清除中间 bundle，彻底杜绝 Raycast / 聚焦重复索引
+ditto "$APP" /Applications/Vitals.app
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" >/dev/null 2>&1 || true
+rm -rf "$APP"
+
+echo "built & deployed to /Applications/Vitals.app"
+echo "  跑一帧数据核对：  /Applications/Vitals.app/Contents/MacOS/Vitals --dump"
+echo "  启动菜单栏 App：  open /Applications/Vitals.app"
+
+

@@ -104,7 +104,13 @@ struct HistoryChartView: View {
                                 path.addLine(to: CGPoint(x: last.x, y: geo.size.height))
                                 path.closeSubpath()
                             }
-                            .fill(item.color.opacity(0.12))
+                            .fill(
+                                LinearGradient(
+                                    colors: [item.color.opacity(0.25), item.color.opacity(0.02)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                         }
                         Path { path in
                             guard let first = points.first else { return }
@@ -113,7 +119,7 @@ struct HistoryChartView: View {
                                 path.addLine(to: project(point, t0: t0, t1: t1, low: low, high: high, size: geo.size))
                             }
                         }
-                        .stroke(item.color, style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+                        .stroke(item.color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                     }
                 }
             }

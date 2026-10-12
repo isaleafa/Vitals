@@ -92,6 +92,7 @@ final class Sampler {
         state.onNetworkPageOpened = { [weak self] in
             self?.refreshRoutes()
             self?.refreshProxy(withListener: true)
+            self?.refreshWiFi()
         }
         state.onHistoryReloadNeeded = { [weak self] in self?.refreshHistory() }
         state.runNetworkChecks = { [weak self] in self?.startNetworkChecks() }
@@ -176,6 +177,7 @@ final class Sampler {
             refreshRoutes()
             refreshProxy(withListener: true)
             refreshServices()
+            refreshWiFi()
         }
         if state.wantProcesses && !lastWantProcesses { refreshProcesses() }
         if state.wantSmart && !lastWantSmart { refreshSmart() }
@@ -185,7 +187,10 @@ final class Sampler {
 
         // 页面保持打开时的定时刷新
         if state.wantRoutes {
-            if tickCount % 3 == 0 { refreshRoutes() }
+            if tickCount % 3 == 0 {
+                refreshRoutes()
+                refreshWiFi()
+            }
             if tickCount % 15 == 0 {
                 refreshProxy(withListener: true)   // lsof 稍贵，低频
                 refreshServices()
@@ -237,6 +242,15 @@ final class Sampler {
                 proxy.processName = ProxyProvider.listenerName(port: port)
             }
             self?.onMain { self?.state.proxy = proxy }
+        }
+    }
+
+    private func refreshWiFi() {
+        workQueue.async { [weak self] in
+            let wifi = WiFiProvider.read()
+            self?.onMain {
+                self?.state.snapshot.net.wifi = wifi
+            }
         }
     }
 
