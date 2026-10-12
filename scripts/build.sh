@@ -52,12 +52,20 @@ PLIST
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 \
     || echo "warning: ad-hoc codesign failed; the app will still run"
 
-# 自动安装部署到 /Applications，并清除中间 bundle，彻底杜绝 Raycast / 聚焦重复索引
-ditto "$APP" /Applications/Vitals.app
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" >/dev/null 2>&1 || true
-rm -rf "$APP"
+# 本地开发时自动同步到 /Applications；CI 环境下保持只在 build/ 目录
+if [ -z "${CI:-}" ]; then
+    ditto "$APP" /Applications/Vitals.app
+fi
 
-echo "built & deployed to /Applications/Vitals.app"
+# 确保 build 目录有 .metadata_never_index，并从 LaunchServices 注销 build 临时 bundle，杜绝 Raycast / 聚焦搜索重复索引
+touch build/.metadata_never_index 2>/dev/null || true
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" >/dev/null 2>&1 || true
+
+echo "built $APP"
+if [ -z "${CI:-}" ]; then
+    echo "  已同步至: /Applications/Vitals.app"
+fi
+
 echo "  跑一帧数据核对：  /Applications/Vitals.app/Contents/MacOS/Vitals --dump"
 echo "  启动菜单栏 App：  open /Applications/Vitals.app"
 

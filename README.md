@@ -48,7 +48,7 @@
 | 网络 | 实时上下行、活跃接口 |
 | 电源 · Pulse | 接电时=输入功率、拔电时=放电功率（颜色跟着模式变）|
 
-面板底部还有：**服务与自启**入口、**全局快捷键开关**、**开机自启**开关、退出。
+面板底部还有：**服务与自启**入口、**轻量新版本提醒与一键直达**（检测到新版本时在面板顶部显示低调胶囊，菜单中亦可随时手动「检查新版本…」）、**全局快捷键开关**、**开机自启**开关、退出。
 
 ### 五个详情页与交互增强
 
@@ -117,9 +117,28 @@
 - **Apple Silicon**（Intel 未测试；温度/功耗走的是 Apple Silicon 的 SMC/IOReport 通道）
 - 构建**只需要 Command Line Tools，不需要完整 Xcode**
 
-### 下载安装（不用编译）
+### 途径 1：Homebrew Cask 快速安装（推荐，免 Gatekeeper 拦截）
 
-到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.2.1.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
+通过 Homebrew 直接从本仓库安装（配方内含 `postflight` 自动移除隔离属性，不需要手动处理拦截）：
+
+```bash
+brew tap isaleafa/vitals https://github.com/isaleafa/Vitals
+brew install --cask vitals
+```
+
+或者直接通过单文件 URL 一键安装：
+```bash
+brew install --cask https://raw.githubusercontent.com/isaleafa/Vitals/main/Casks/vitals.rb
+```
+
+后续升级直接运行：
+```bash
+brew upgrade vitals
+```
+
+### 途径 2：DMG 下载安装
+
+到 [**Releases**](https://github.com/isaleafa/Vitals/releases) 下载最新的 `Vitals-0.2.2.dmg`，打开后把 **Vitals.app** 拖进 **Applications**。
 
 > ⚠️ **首次打开会被 Gatekeeper 拦下**：本 App 是 **ad-hoc 签名**（开源项目没有付费的 Apple 开发者账号做公证），双击只会看到「Apple 无法检查其是否包含恶意软件」——在 macOS 26/27 上这是**直接拒绝启动**，不是给个提示让你点继续。放行方式三选一：
 >
@@ -132,10 +151,10 @@
 >
 > **③ 干脆用终端下载安装**（`curl` 不会打隔离属性，所以完全不触发 Gatekeeper）：
 > ```bash
-> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.1/Vitals-0.2.1.dmg
+> curl -L -o /tmp/Vitals.dmg https://github.com/isaleafa/Vitals/releases/download/v0.2.2/Vitals-0.2.2.dmg
 > hdiutil attach /tmp/Vitals.dmg
-> ditto "/Volumes/Vitals 0.2.1/Vitals.app" /Applications/Vitals.app
-> hdiutil detach "/Volumes/Vitals 0.2.1"
+> ditto "/Volumes/Vitals 0.2.2/Vitals.app" /Applications/Vitals.app
+> hdiutil detach "/Volumes/Vitals 0.2.2"
 > open /Applications/Vitals.app
 > ```
 
@@ -254,13 +273,12 @@ Sources/
 
 ## 路线图
 
-已完成：电源面板、CPU/内存/存储/网络详情、历史曲线、开机自启、应用图标、网络体检、监听端口、SSH 可达性、温度与功耗、登录项审计、电池健康趋势、阈值告警、DMG 分发（[Releases](https://github.com/isaleafa/Vitals/releases)）、菜单栏显示两档切换、**全局快捷键 ⌥V**、**Wi-Fi 射频链路**、**全局数值一键复制 + Toast**、**菜单栏防抖固定槽位**、**TOP 进程快捷动作**。
+已完成：电源面板、CPU/内存/存储/网络详情、历史曲线、开机自启、应用图标、网络体检、监听端口、SSH 可达性、温度与功耗、登录项审计、电池健康趋势、阈值告警、DMG 分发（[Releases](https://github.com/isaleafa/Vitals/releases)）、菜单栏显示两档切换、**全局快捷键 ⌥V**、**Wi-Fi 射频链路**、**全局数值一键复制 + Toast**、**菜单栏防抖固定槽位**、**TOP 进程快捷动作**、**Homebrew Cask 极速安装与分发**、**轻量新版本提醒与一键更新**。
 
 待做（打磨项）：
 
 - [ ] 历史曲线导出 CSV / PNG
 - [ ] 温度/功耗在更多机型上的可用性核对（欢迎贴 `Vitals --sensors` 输出）
-- [ ] Homebrew Cask 分发
 
 **明确不做**（写在这里是为了让它是"决定"而不是"漏项"）：
 

@@ -8,6 +8,8 @@
 
 - **全局快捷键 ⌥V 呼出总览**：在任意应用或全屏下，键盘按下 `⌥ + V`（Option + V）瞬间在当前屏幕中央呼出悬浮总览面板，再按一次或按 `Esc` / `⌘W` 立即收起。基于原生 Carbon API，**无需系统辅助功能（Accessibility）提权**。总览面板底部菜单支持开启/关闭。
 - **Wi-Fi 射频链路监控（网络详情页）**：采用 Apple 原生 `CoreWLAN` 框架，毫秒级按需只读采样当前 Wi-Fi 的**物理协商速率（Tx Rate）**、**信号强度（RSSI）与评级**、**信噪比（SNR）**、**噪声基底**、**信道与频段（2.4G/5G/6G，20/40/80/160MHz）**。
+- **Homebrew Cask 极速安装与分发**：提供官方 Homebrew Cask 配方（`Casks/vitals.rb`），支持 `brew tap isaleafa/vitals https://github.com/isaleafa/Vitals && brew install --cask vitals` 一键安装升级；内置 postflight 自动解除 quarantine 隔离，安装后免除手动前往系统设置放行。
+- **轻量级新版本检查与提示**：开箱即用的极简更新检测器，启动后后台静默探测（基于 HEAD 请求 GitHub Release 重定向，无 API Rate-limit 风险，零 Sparkle 膨胀与零常驻守护进程）。发现新版本时在总览面板顶部静默挂载微型胶囊徽标，点击直达下载；支持菜单中随时「检查新版本…」与 `Vitals --check-update` 命令行对账。
 - **全局数值一键复制 + Toast 反馈**：详情页中的所有参数（IP 地址、MAC 地址、监听端口号、SSH 别名与各项指标），点击即可复制到剪贴板，底部中央伴有极简半透明 Toast 胶囊提示。
 - **TOP 进程快捷动作**：CPU / 内存详情页的 TOP 进程表支持点击 PID 标签直接复制；右键可唤起上下文菜单（拷贝 PID、拷贝进程名、一键打开系统活动监视器）。
 - **菜单栏固定槽位防抖**：「CPU + 内存」菜单栏显示模式重构为工业级固定槽位与锚点对齐体系，宽度恒定锁死为 83.0pt，彻底消除数字跳动与位数变化时系统状态栏的横向抖动。
@@ -15,8 +17,8 @@
 ## 交互与稳定性改进
 
 - **详情窗口极速关闭**：所有详情窗口现已原生支持 `⌘W` 和 `Esc` 按键关闭；总览面板点击外部时自动平滑收起。
-- **单实例分发保障**：构建脚本（`build.sh`）自动将编译产物安装至 `/Applications/Vitals.app` 并清理本地中间 bundle，杜绝 Spotlight 与 Raycast 启动器索引到重复应用。
-- **自检套件扩充**：`Vitals --selftest` 扩充了菜单栏固定槽宽恒定性验证与 Wi-Fi 射频数据模型解析断言。
+- **单实例分发保障**：构建脚本（`build.sh`）保持 `build/Vitals.app` 供 CI 与 DMG 打包使用，同时自动同步安装至 `/Applications/Vitals.app` 并注销临时 bundle，杜绝 Spotlight 与 Raycast 启动器索引到重复应用。
+- **自检套件扩充**：`Vitals --selftest` 扩充了菜单栏固定槽宽恒定性验证、Wi-Fi 射频数据模型解析断言与语义化版本比对断言。
 
 ---
 

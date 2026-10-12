@@ -53,5 +53,5 @@ jobs:
           TAG="v${VERSION}"
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "Vitals ${TAG}" --notes-file docs/release-notes.md
-          gh release upload "$TAG" "build/Vitals-${VERSION}.dmg" --clobber
+          gh release upload "$TAG" "build/Vitals-${VERSION}.dmg" "Casks/vitals.rb" --clobber
           gh release view "$TAG" --json url -q .url

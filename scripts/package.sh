@@ -38,8 +38,16 @@ trap - EXIT
 
 rm -rf "$STAGE"
 
+SHA256=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
 echo "✓ 打包完成：${DMG}（$(du -h "$DMG" | cut -f1)，用了 ${TOOL}）"
-echo "  sha256 $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+echo "  sha256 ${SHA256}"
+
+# 同步更新 Casks/vitals.rb
+if [ -f "Casks/vitals.rb" ]; then
+    sed -i '' -E "s/version \"[^\"]+\"/version \"${VERSION}\"/" Casks/vitals.rb
+    sed -i '' -E "s/sha256 \"[^\"]+\"/sha256 \"${SHA256}\"/" Casks/vitals.rb
+    echo "  已同步更新 Casks/vitals.rb (v${VERSION})"
+fi
 echo
 echo "上传到 GitHub Release："
 echo "  gh release create v${VERSION} ${DMG} --title \"Vitals v${VERSION}\" --notes-file docs/release-notes.md"

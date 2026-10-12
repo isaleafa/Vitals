@@ -146,6 +146,26 @@ struct OverviewPanel: View {
                 Text("Vitals").font(.system(size: 12, weight: .semibold))
                 Text("Mac 工具箱").font(.system(size: 10)).foregroundStyle(.tertiary)
                     .lineLimit(1)
+                if let update = state.availableUpdate {
+                    Button {
+                        NSWorkspace.shared.open(update.releaseURL)
+                        state.showToast("已打开更新页面 (v\(update.version))")
+                    } label: {
+                        HStack(spacing: 3) {
+                            Circle().fill(.orange).frame(width: 5, height: 5)
+                            Text("新版 v\(update.version)")
+                                .font(.system(size: 9, weight: .medium))
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 8))
+                        }
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("发现新版本 v\(update.version)，点击前往 GitHub 查看")
+                }
                 Spacer(minLength: 8)
                 Text("运行 \(Fmt.duration(state.snapshot.cpu.uptime))")
                     .font(.system(size: 10)).foregroundStyle(.secondary).monospacedDigit().fixedSize()
@@ -183,6 +203,10 @@ struct OverviewPanel: View {
             }
             Divider()
             Toggle("全局快捷键 (⌥V)", isOn: $state.enableGlobalHotKey)
+            Divider()
+            Button("检查新版本…") {
+                UpdateChecker.shared.check(manual: true)
+            }
         } label: {
             Image(systemName: "rectangle.topthird.inset.filled")
                 .font(.system(size: 11))
@@ -192,7 +216,7 @@ struct OverviewPanel: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("菜单栏显示：电池 / CPU + 内存")
+        .help("菜单栏显示与设置")
     }
 
     private var footer: some View {

@@ -36,6 +36,9 @@ final class AppState: ObservableObject {
     @Published var toastMessage: String?
     private var toastWorkItem: DispatchWorkItem?
 
+    /// 发现的新版本（如有）；轻量后台检测，静默挂载
+    @Published var availableUpdate: UpdateInfo?
+
     func showToast(_ message: String) {
         toastWorkItem?.cancel()
         toastMessage = message

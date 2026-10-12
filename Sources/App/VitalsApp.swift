@@ -22,6 +22,24 @@ struct VitalsApp: App {
             DumpMode.bench(iterations: count)
             exit(0)
         }
+        // 命令行核对模式：`Vitals --check-update` 检查 GitHub 是否有新版本
+        if CommandLine.arguments.contains("--check-update") {
+            var done = false
+            UpdateChecker.shared.check(manual: true) { info in
+                if let info = info {
+                    print("发现新版本: v\(info.version)")
+                    print("发布地址: \(info.releaseURL)")
+                } else {
+                    print("当前已是最新版本 (v\(UpdateChecker.shared.currentVersion))")
+                }
+                done = true
+            }
+            while !done {
+                RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.1))
+            }
+            exit(0)
+        }
+
         sampler = Sampler(state: AppState.shared)
         sampler.start()
         AppState.shared.refreshLoginItem()
@@ -29,6 +47,11 @@ struct VitalsApp: App {
         // 全局快捷键 ⌥V 呼出/收起快捷总览
         GlobalHotKey.shared.setup {
             DetailWindows.open("overview", state: AppState.shared)
+        }
+
+        // 后台静默新版本检测（延迟 3 秒发起，零阻断启动）
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3.0) {
+            UpdateChecker.shared.check(manual: false)
         }
 
         // 打开网络页就自动跑一次体检（不用手点）
