@@ -18,9 +18,9 @@ struct EnergyReading {
 final class IOReportEnergy {
     static let shared = IOReportEnergy()
 
-    private typealias CopyChannelsInGroup = @convention(c) (CFString, CFString?, UInt64, UInt64, UInt64) -> CFMutableDictionary?
-    private typealias CreateSubscription = @convention(c) (UnsafeMutableRawPointer?, CFMutableDictionary?, UnsafeMutablePointer<CFMutableDictionary?>?, UInt64, CFTypeRef?) -> CFDictionary?
-    private typealias CreateSamples = @convention(c) (CFDictionary?, CFMutableDictionary?, CFTypeRef?) -> CFMutableDictionary?
+    private typealias CopyChannelsInGroup = @convention(c) (CFString, CFString?, UInt64, UInt64, UInt64) -> Unmanaged<CFMutableDictionary>?
+    private typealias CreateSubscription = @convention(c) (UnsafeMutableRawPointer?, CFMutableDictionary?, UnsafeMutablePointer<CFMutableDictionary?>?, UInt64, CFTypeRef?) -> Unmanaged<CFDictionary>?
+    private typealias CreateSamples = @convention(c) (CFDictionary?, CFMutableDictionary?, CFTypeRef?) -> Unmanaged<CFMutableDictionary>?
     private typealias ChannelGetStr = @convention(c) (CFDictionary?, Int32) -> CFString?
     private typealias ChannelGetInt = @convention(c) (CFDictionary?, Int32) -> Int64
 
@@ -52,9 +52,10 @@ final class IOReportEnergy {
         simpleInt = symbol("IOReportSimpleGetIntegerValue", ChannelGetInt.self)
 
         guard let copyChannels, let createSub,
-              let group = copyChannels("Energy Model" as CFString, nil, 0, 0, 0) else { return }
+              let groupRef = copyChannels("Energy Model" as CFString, nil, 0, 0, 0) else { return }
+        let group = groupRef.takeRetainedValue()
         var subbed: CFMutableDictionary?
-        subscription = createSub(nil, group, &subbed, 0, nil)
+        subscription = createSub(nil, group, &subbed, 0, nil)?.takeRetainedValue()
         channels = group
     }
 
@@ -66,8 +67,11 @@ final class IOReportEnergy {
               let chName, let chUnit, let simpleInt else {
             return EnergyReading(gpuWatts: nil, cpuWatts: nil)
         }
-        guard let sample = createSamples(subscription, channels, nil),
-              let dict = sample as? [String: Any],
+        guard let sampleRef = createSamples(subscription, channels, nil) else {
+            return EnergyReading(gpuWatts: nil, cpuWatts: nil)
+        }
+        let sample = sampleRef.takeRetainedValue()
+        guard let dict = sample as? [String: Any],
               let list = dict["IOReportChannels"] as? [CFDictionary] else {
             return EnergyReading(gpuWatts: nil, cpuWatts: nil)
         }

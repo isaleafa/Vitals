@@ -172,6 +172,11 @@ final class Sampler {
         if snapshot.power.externalPower, tickCount == 1 || tickCount % 60 == 0 { refreshPDIdentity() }
         if tickCount == 2 || tickCount % 300 == 0 { refreshOfficialHealth() }
 
+        // 兜底校准按需采样开关：当窗口均已关闭/隐藏，且 SwiftUI onDisappear 未触发时，及时关闭后台高频探测
+        MainActor.assumeIsolated {
+            DetailWindows.syncDemands(state: state)
+        }
+
         // 页面刚打开（开关 false→true）：立刻采一次，别让用户对着"读取中…"等 30 秒
         if state.wantRoutes && !lastWantRoutes {
             refreshRoutes()
@@ -284,15 +289,20 @@ final class Sampler {
         }
         let group = DispatchGroup()
         let lock = NSLock()
+        let semaphore = DispatchSemaphore(value: 6)   // 限制最多 6 个并发探测，防止打爆 GCD 线程池和网络连接
         var results: [String: (Bool, Double?)] = [:]   // 并发只往字典里写（加锁），别并发改同一个数组
         for host in hosts {
             group.enter()
             DispatchQueue.global(qos: .utility).async {
+                semaphore.wait()
+                defer {
+                    semaphore.signal()
+                    group.leave()
+                }
                 let outcome = SSHHostsProvider.probe(host)
                 lock.lock()
                 results[host.alias] = outcome
                 lock.unlock()
-                group.leave()
             }
         }
         group.notify(queue: .main) { [weak self] in

@@ -50,22 +50,56 @@ enum DetailWindows {
     /// 捕获到的菜单栏总览窗口引用
     static weak var overviewWindow: NSWindow?
 
-    /// 关闭菜单栏总览面板（若它处于显示状态）
+    /// 登记菜单栏弹出的总览宿主窗口
+    static func registerOverviewWindow(_ window: NSWindow) {
+        if !(window is DetailWindow) {
+            overviewWindow = window
+        }
+    }
+
+    /// 关闭菜单栏总览面板或快捷总览浮窗（若它们处于显示状态）
     static func closeOverviewPanel() {
-        overviewWindow?.orderOut(nil)
-        for window in NSApp.windows where !opened.values.contains(window) && window.isVisible {
-            window.orderOut(nil)
+        if let win = overviewWindow, win.isVisible {
+            win.orderOut(nil)
+        }
+        if let win = opened["overview"], win.isVisible {
+            win.orderOut(nil)
+        }
+    }
+
+    /// 检查指定详情页窗口是否处于打开显示状态
+    static func isWindowVisible(_ page: String) -> Bool {
+        opened[page]?.isVisible == true
+    }
+
+    /// 同步窗口真实可见状态到按需采样开关（防止窗口关闭后后台仍跑 ps/smartctl/lsof）
+    static func syncDemands(state: AppState) {
+        let cpuOpen = isWindowVisible("cpu") || isWindowVisible("mem")
+        if !cpuOpen && state.wantProcesses {
+            state.wantProcesses = false
+        }
+        let diskOpen = isWindowVisible("disk")
+        if !diskOpen && state.wantSmart {
+            state.wantSmart = false
+        }
+        let netOpen = isWindowVisible("net")
+        if !netOpen && state.wantRoutes {
+            state.wantRoutes = false
         }
     }
 
     static func open(_ page: String, state: AppState) {
+        if page == "overview" {
+            let overviewVisible = opened["overview"]?.isVisible == true
+            let menuPanelVisible = overviewWindow?.isVisible == true
+            if overviewVisible || menuPanelVisible {
+                closeOverviewPanel()
+                return
+            }
+        }
+
         // 打开任意详情窗口时，立即收起右上角的菜单栏总览面板
         closeOverviewPanel()
-
-        if page == "overview", let window = opened["overview"], window.isVisible && window.isKeyWindow {
-            window.orderOut(nil)
-            return
-        }
 
         if let window = opened[page], window.isVisible {
             bringToFront(window)

@@ -29,10 +29,10 @@ final class HIDSensors {
 
     private typealias CreateLegacy = @convention(c) (CFAllocator?) -> UnsafeMutableRawPointer?
     private typealias SetMatching = @convention(c) (UnsafeMutableRawPointer?, CFDictionary?) -> Int32
-    private typealias CopyServices = @convention(c) (UnsafeMutableRawPointer?) -> CFArray?
-    private typealias CopyProperty = @convention(c) (UnsafeMutableRawPointer?, CFString?) -> CFTypeRef?
-    private typealias CopyEvent = @convention(c) (UnsafeMutableRawPointer?, Int64, Int32, Int64) -> UnsafeMutableRawPointer?
-    private typealias GetFloat = @convention(c) (UnsafeMutableRawPointer?, Int64) -> Double
+    private typealias CopyServices = @convention(c) (UnsafeMutableRawPointer?) -> Unmanaged<CFArray>?
+    private typealias CopyProperty = @convention(c) (UnsafeMutableRawPointer?, CFString?) -> Unmanaged<CFTypeRef>?
+    private typealias CopyEvent = @convention(c) (UnsafeMutableRawPointer?, Int64, Int32, Int64) -> Unmanaged<CFTypeRef>?
+    private typealias GetFloat = @convention(c) (CFTypeRef, Int64) -> Double
 
     private var createClient: CreateLegacy?
     private var setMatching: SetMatching?
@@ -83,17 +83,19 @@ final class HIDSensors {
             client = createClient(kCFAllocatorDefault)
             if let client { _ = setMatching(client, matching) }
         }
-        guard let client, let services = copyServices(client) else { return ThermalStats() }
+        guard let client, let servicesRef = copyServices(client) else { return ThermalStats() }
+        let services = servicesRef.takeRetainedValue()
 
         var readings: [SensorReading] = []
         let count = CFArrayGetCount(services)
         for index in 0..<count {
             guard let raw = CFArrayGetValueAtIndex(services, index) else { continue }
             let service = UnsafeMutableRawPointer(mutating: raw)
-            guard let event = copyEvent(service, 15 /* kIOHIDEventTypeTemperature */, 0, 0) else { continue }
+            guard let eventRef = copyEvent(service, 15 /* kIOHIDEventTypeTemperature */, 0, 0) else { continue }
+            let event = eventRef.takeRetainedValue()
             let celsius = getFloat(event, 15 << 16)
             guard celsius > 0, celsius <= 150 else { continue }   // 过滤无效值（和 macmon 同）
-            let name = (copyProperty(service, "Product" as CFString) as? String) ?? "(无名)"
+            let name = (copyProperty(service, "Product" as CFString)?.takeRetainedValue() as? String) ?? "(无名)"
             readings.append(SensorReading(name: name, celsius: celsius))
         }
         readings.sort { $0.name < $1.name }

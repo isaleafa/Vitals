@@ -45,27 +45,33 @@ enum Shell {
             }
         }
 
+        // 用 terminationHandler 异步通知，不占用 GCD 线程（避免命令卡死时耗尽 64 条 worker 线程）
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            exited.signal()
+        }
+
         guard (try? process.run()) != nil else {
             pipe.fileHandleForReading.readabilityHandler = nil
             return Outcome(output: "", status: -1)
         }
 
-        // waitUntilExit 没有超时版本，放到后台线程等，主等待带超时
-        let exited = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .utility).async {
-            process.waitUntilExit()
-            exited.signal()
-        }
         var timedOut = false
         if exited.wait(timeout: .now() + timeout) == .timedOut {
             timedOut = true
             process.terminate()                       // SIGTERM，再宽限 1 秒后 SIGKILL
             if exited.wait(timeout: .now() + 1) == .timedOut {
-                kill(process.processIdentifier, SIGKILL)
+                let pid = process.processIdentifier
+                if pid > 0 { kill(pid, SIGKILL) }
                 _ = exited.wait(timeout: .now() + 1)
             }
+            pipe.fileHandleForReading.readabilityHandler = nil
+        } else {
+            _ = drained.wait(timeout: .now() + 1)     // 正常退出：把管道里剩下的收完再走
         }
-        _ = drained.wait(timeout: .now() + 2)         // 把管道里剩下的收完再走
+        pipe.fileHandleForReading.readabilityHandler = nil
+        try? pipe.fileHandleForReading.close()
+
         lock.lock()
         let output = String(data: data, encoding: .utf8) ?? ""
         lock.unlock()

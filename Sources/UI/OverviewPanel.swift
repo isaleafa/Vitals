@@ -69,14 +69,7 @@ struct OverviewPanel: View {
         }
         .padding(12)
         .frame(width: 345)
-        .background(WindowAccessor { window in
-            DetailWindows.overviewWindow = window
-            NotificationCenter.default.removeObserver(window, name: NSWindow.didResignKeyNotification, object: window)
-            NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { _ in
-                // 点击外部失焦时自动收起总览面板
-                window.orderOut(nil)
-            }
-        })
+        .background(WindowAccessor())
     }
 
     /// 整张卡片当按钮：点开对应详情窗口（自己管窗口：居中 + 提到最前）。
@@ -248,23 +241,109 @@ struct OverviewPanel: View {
     }()
 }
 
-/// 获取宿主 NSWindow 的轻量级桥接
+/// 获取宿主 NSWindow 并绑定全局外部点击与 Esc 收起行为的轻量级桥接
 private struct WindowAccessor: NSViewRepresentable {
-    let onWindow: (NSWindow) -> Void
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async {
-            if let window = view.window {
-                onWindow(window)
-            }
-        }
+        context.coordinator.setup(view: view)
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        if let window = nsView.window {
-            onWindow(window)
+        context.coordinator.update(view: nsView)
+    }
+
+    @MainActor
+    final class Coordinator {
+        private weak var observedWindow: NSWindow?
+        private var globalClickMonitor: Any?
+        private var localKeyMonitor: Any?
+        private var resignObserver: NSObjectProtocol?
+
+        func setup(view: NSView) {
+            DispatchQueue.main.async { [weak self] in
+                guard let window = view.window else { return }
+                self?.attach(to: window)
+            }
+        }
+
+        func update(view: NSView) {
+            if let window = view.window, window !== observedWindow {
+                attach(to: window)
+            }
+        }
+
+        private func attach(to window: NSWindow) {
+            detach()
+            observedWindow = window
+            DetailWindows.registerOverviewWindow(window)
+
+            // 1. 监听失焦通知（窗口成为非活动时）
+            resignObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                DispatchQueue.main.async { self?.dismiss() }
+            }
+
+            // 2. 全局鼠标事件监听：无论焦点在不在本窗口，只要在窗口外部点击任意键，立即收起
+            globalClickMonitor = NSEvent.addGlobalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { [weak self] _ in
+                DispatchQueue.main.async {
+                    guard let self, let win = self.observedWindow, win.isVisible else { return }
+                    let mouse = NSEvent.mouseLocation
+                    if !NSMouseInRect(mouse, win.frame, false) {
+                        self.dismiss()
+                    }
+                }
+            }
+
+            // 3. 局部按键监听：捕获 Esc 键（keyCode 53）快速收起
+            localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                if event.keyCode == 53 {
+                    DispatchQueue.main.async { self?.dismiss() }
+                    return nil
+                }
+                return event
+            }
+        }
+
+        private func dismiss() {
+            DetailWindows.closeOverviewPanel()
+        }
+
+        func detach() {
+            if let resignObserver {
+                NotificationCenter.default.removeObserver(resignObserver)
+                self.resignObserver = nil
+            }
+            if let globalClickMonitor {
+                NSEvent.removeMonitor(globalClickMonitor)
+                self.globalClickMonitor = nil
+            }
+            if let localKeyMonitor {
+                NSEvent.removeMonitor(localKeyMonitor)
+                self.localKeyMonitor = nil
+            }
+            observedWindow = nil
+        }
+
+        deinit {
+            if let resignObserver {
+                NotificationCenter.default.removeObserver(resignObserver)
+            }
+            if let globalClickMonitor {
+                NSEvent.removeMonitor(globalClickMonitor)
+            }
+            if let localKeyMonitor {
+                NSEvent.removeMonitor(localKeyMonitor)
+            }
         }
     }
 }
