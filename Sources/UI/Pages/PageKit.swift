@@ -45,26 +45,10 @@ struct PageShell<Content: View>: View {
 
             // 浮动轻量 Toast
             if let msg = state.toastMessage {
-                HStack(spacing: 5) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.green)
-                    Text(msg)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(Color(nsColor: .windowBackgroundColor))
-                        .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.secondary.opacity(0.20), lineWidth: 0.5)
-                )
-                .padding(.bottom, 26)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(100)
+                ToastCapsule(message: msg)
+                    .padding(.bottom, 26)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(100)
             }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: state.toastMessage)
@@ -227,3 +211,39 @@ struct ProcTable: View {
         }
     }
 }
+
+/// 全局通用的轻量浮动 Toast 胶囊
+struct ToastCapsule: View {
+    let message: String
+
+    private var iconAndColor: (name: String, color: Color) {
+        if message.contains("失败") || message.contains("异常") || message.contains("错误") {
+            return ("exclamationmark.triangle.fill", .orange)
+        } else if message.contains("正在") {
+            return ("arrow.triangle.2.circlepath", .blue)
+        } else {
+            return ("checkmark.circle.fill", .green)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: iconAndColor.name)
+                .font(.system(size: 10))
+                .foregroundStyle(iconAndColor.color)
+            Text(message)
+                .font(.system(size: 11, weight: .medium))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(Color(nsColor: .windowBackgroundColor))
+                .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.secondary.opacity(0.20), lineWidth: 0.5)
+        )
+    }
+}
+

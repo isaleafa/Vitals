@@ -74,7 +74,9 @@ enum DiskProvider {
     /// 那会走 Foundation 的重路径，实测 16ms/次，是整个采样里最贵的一环。
     static func capacity() -> DiskCapacity? {
         var fs = statfs()
-        guard statfs("/System/Volumes/Data", &fs) == 0 else { return nil }
+        if statfs("/System/Volumes/Data", &fs) != 0 {
+            guard statfs("/", &fs) == 0 else { return nil }
+        }
         let blockSize = UInt64(fs.f_bsize)
         return DiskCapacity(total: UInt64(fs.f_blocks) * blockSize,
                             free: UInt64(fs.f_bavail) * blockSize)

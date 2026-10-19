@@ -7,69 +7,80 @@ struct OverviewPanel: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            header
+        ZStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 7) {
+                header
 
-            if !state.allAlerts.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(state.allAlerts, id: \.self) { alert in
-                        HStack(spacing: 5) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10)).foregroundStyle(.red)
-                            Text(alert).font(.system(size: 11)).foregroundStyle(.red)
+                if !state.allAlerts.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(state.allAlerts, id: \.self) { alert in
+                            HStack(spacing: 5) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 10)).foregroundStyle(.red)
+                                Text(alert).font(.system(size: 11)).foregroundStyle(.red)
+                            }
                         }
                     }
+                    .padding(.horizontal, 9).padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.red.opacity(0.10)))
                 }
-                .padding(.horizontal, 9).padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.red.opacity(0.10)))
-            }
 
-            card("cpu") {
-                MetricCard(title: "CPU", icon: "cpu",
-                           value: Fmt.pct0(state.snapshot.cpu.total),
-                           detail: "负载 \(loadText) · \(state.snapshot.cpu.perCore.count)核",
-                           color: state.alerts.contains { $0.hasPrefix("CPU") } ? .red : .blue,
-                           history: state.cpuHistory)
-            }
+                card("cpu") {
+                    MetricCard(title: "CPU", icon: "cpu",
+                               value: Fmt.pct0(state.snapshot.cpu.total),
+                               detail: "负载 \(loadText) · \(state.snapshot.cpu.perCore.count)核",
+                               color: state.alerts.contains { $0.hasPrefix("CPU") } ? .red : .blue,
+                               history: state.cpuHistory)
+                }
 
-            card("mem") {
-                MetricCard(title: "内存", icon: "memorychip",
-                           value: Fmt.gb(state.snapshot.memory.usedBytes),
-                           subValue: "/ \(Fmt.gb(state.snapshot.memory.totalBytes)) GB",
-                           detail: "\(state.snapshot.memory.pressureText) · 压缩 \(Fmt.gb(state.snapshot.memory.compressedBytes))G · 交换 \(state.snapshot.memory.swapUsedBytes / 1_048_576)M",
-                           color: memoryColor, history: state.memHistory)
-            }
+                card("mem") {
+                    MetricCard(title: "内存", icon: "memorychip",
+                               value: Fmt.gb(state.snapshot.memory.usedBytes),
+                               subValue: "/ \(Fmt.gb(state.snapshot.memory.totalBytes)) GB",
+                               detail: "\(state.snapshot.memory.pressureText) · 压缩 \(Fmt.gb(state.snapshot.memory.compressedBytes))G · 交换 \(state.snapshot.memory.swapUsedBytes / 1_048_576)M",
+                               color: memoryColor, history: state.memHistory)
+                }
 
-            card("disk") {
-                MetricCard(title: "存储", icon: "internaldrive",
-                           value: Fmt.bytes(usedDisk),
-                           subValue: "/ \(Fmt.bytes(state.snapshot.disk.totalBytes))",
-                           detail: "读 \(Fmt.rate(state.snapshot.disk.readBps)) · 写 \(Fmt.rate(state.snapshot.disk.writeBps)) · \(Int(state.snapshot.disk.iops)) IOPS",
-                           color: state.alerts.contains { $0.hasPrefix("磁盘") } ? .red : .green,
-                           history: state.diskHistory)
-            }
+                card("disk") {
+                    MetricCard(title: "存储", icon: "internaldrive",
+                               value: Fmt.bytes(usedDisk),
+                               subValue: "/ \(Fmt.bytes(state.snapshot.disk.totalBytes))",
+                               detail: "读 \(Fmt.rate(state.snapshot.disk.readBps)) · 写 \(Fmt.rate(state.snapshot.disk.writeBps)) · \(Int(state.snapshot.disk.iops)) IOPS",
+                               color: state.alerts.contains { $0.hasPrefix("磁盘") } ? .red : .green,
+                               history: state.diskHistory)
+                }
 
-            card("net") {
-                MetricCard(title: "网络", icon: "network",
-                           value: "↓\(Fmt.rate(rxRate)) ↑\(Fmt.rate(txRate))",
-                           detail: netDetail,
-                           color: .purple, history: state.netHistory)
-            }
+                card("net") {
+                    MetricCard(title: "网络", icon: "network",
+                               value: "↓\(Fmt.rate(rxRate)) ↑\(Fmt.rate(txRate))",
+                               detail: netDetail,
+                               color: .purple, history: state.netHistory)
+                }
 
-            card("power") {
-                MetricCard(title: "电源 · Pulse", icon: state.menuBarSymbol,
-                           value: String(format: "%.1f", state.snapshot.power.effectiveWatts),
-                           subValue: "W",
-                           detail: powerDetail,
-                           color: powerColor, history: state.powerHistory)
-            }
+                card("power") {
+                    MetricCard(title: "电源 · Pulse", icon: state.menuBarSymbol,
+                               value: String(format: "%.1f", state.snapshot.power.effectiveWatts),
+                               subValue: "W",
+                               detail: powerDetail,
+                               color: powerColor, history: state.powerHistory)
+                }
 
-            footer
+                footer
+            }
+            .padding(12)
+
+            // 浮动轻量 Toast
+            if let msg = state.toastMessage {
+                ToastCapsule(message: msg)
+                    .padding(.bottom, 36)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(100)
+            }
         }
-        .padding(12)
         .frame(width: 345)
         .background(WindowAccessor())
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: state.toastMessage)
     }
 
     /// 整张卡片当按钮：点开对应详情窗口（自己管窗口：居中 + 提到最前）。

@@ -72,6 +72,12 @@ enum DetailWindows {
         opened[page]?.isVisible == true
     }
 
+    /// 检查是否有任何 Vitals 窗口（菜单栏总览或详情窗口）处于可见显示状态
+    static var isAnyWindowVisible: Bool {
+        if let win = overviewWindow, win.isVisible { return true }
+        return opened.values.contains { $0.isVisible }
+    }
+
     /// 同步窗口真实可见状态到按需采样开关（防止窗口关闭后后台仍跑 ps/smartctl/lsof）
     static func syncDemands(state: AppState) {
         let cpuOpen = isWindowVisible("cpu") || isWindowVisible("mem")
@@ -109,6 +115,19 @@ enum DetailWindows {
         opened[page] = window
         centerOnMouseScreen(window)
         bringToFront(window)
+
+        // 确保重新打开已存在的窗口时恢复按需采样开关（NSHostingView 复用时不会重走 SwiftUI onAppear）
+        switch page {
+        case "cpu", "mem":
+            state.wantProcesses = true
+        case "disk":
+            state.wantSmart = true
+        case "net":
+            state.wantRoutes = true
+        default:
+            break
+        }
+
         state.onDetailPageOpened?(page)   // 打开即触发该页的"自动动作"（网络页会自动跑体检）
         // 便于脚本核对（`screencapture -l <窗口号>`）
         print("detail window \(page) id = \(window.windowNumber) frame = \(NSStringFromRect(window.frame))")

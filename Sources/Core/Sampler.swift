@@ -16,10 +16,12 @@ final class Sampler {
     private let state: AppState
     private var tickCount = 0
     private let workQueue = DispatchQueue(label: "vitals.onDemand", qos: .utility)
+    private let netCheckQueue = DispatchQueue(label: "vitals.networkCheck", qos: .utility)
 
     // 低频项缓存：每帧都填进快照（只在到点时刷新），否则下一帧就丢了
     private var pdInfo: PDIdentity.Info?
     private var officialHealth: (percent: Int?, text: String?)?
+    private var wifiInfo: WiFiStats?
     private var lastExternalPower: Bool?
     private var lastWantRoutes = false
     private var lastWantProcesses = false
@@ -146,6 +148,9 @@ final class Sampler {
             snapshot.power.healthOfficialPercent = health.percent
             snapshot.power.healthOfficialText = health.text
         }
+        if let wifi = wifiInfo {
+            snapshot.net.wifi = wifi
+        }
         state.apply(snapshot)
 
         // 历史：整分写盘 + 刷新曲线
@@ -254,6 +259,7 @@ final class Sampler {
         workQueue.async { [weak self] in
             let wifi = WiFiProvider.read()
             self?.onMain {
+                self?.wifiInfo = wifi
                 self?.state.snapshot.net.wifi = wifi
             }
         }
@@ -333,7 +339,7 @@ final class Sampler {
         let items = NetworkCheckProvider.items().map { NetworkCheckResult(id: $0.id, title: $0.title) }
         state.checks = items
         let proxy = state.proxy.http ?? ProxyProvider.read().http
-        workQueue.async { [weak self] in
+        netCheckQueue.async { [weak self] in
             guard let self else { return }
             for (index, item) in NetworkCheckProvider.items().enumerated() {
                 self.onMain {

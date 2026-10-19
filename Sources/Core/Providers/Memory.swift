@@ -15,12 +15,15 @@ struct MemoryRaw {
 /// 内存：`host_statistics64`（原生版 vm_stat）+ `vm.swapusage` + 内存压力 sysctl。
 enum MemoryProvider {
     static func read() -> MemoryRaw? {
+        let host = mach_host_self()
+        defer { mach_port_deallocate(mach_task_self_, host) }
+
         var stats = vm_statistics64_data_t()
         var count = mach_msg_type_number_t(
             MemoryLayout<vm_statistics64_data_t>.size / MemoryLayout<integer_t>.size)
         let kr = withUnsafeMutablePointer(to: &stats) { ptr -> kern_return_t in
             ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, intPtr, &count)
+                host_statistics64(host, HOST_VM_INFO64, intPtr, &count)
             }
         }
         guard kr == KERN_SUCCESS else { return nil }

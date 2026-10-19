@@ -168,11 +168,22 @@ final class HistoryStore {
         let now = Date()
         let cutoff = Int(now.timeIntervalSince1970 - seconds)
         var result: [HistoryRecord] = []
-        let days = Int(seconds / 86_400) + 1
-        for offset in 0..<days {
-            let day = Int(now.timeIntervalSince1970) - offset * 86_400
-            result.append(contentsOf: cachedRecords(for: day))
+        var seenFileNames = Set<String>()
+
+        var ts = Int(now.timeIntervalSince1970)
+        while true {
+            let name = Self.fileName(for: ts)
+            if seenFileNames.insert(name).inserted {
+                result.append(contentsOf: cachedRecords(for: ts))
+            }
+            if ts <= cutoff { break }
+            ts -= 86_400
         }
+        let cutoffName = Self.fileName(for: cutoff)
+        if seenFileNames.insert(cutoffName).inserted {
+            result.append(contentsOf: cachedRecords(for: cutoff))
+        }
+
         return result.filter { $0.t >= cutoff }.sorted { $0.t < $1.t }
     }
 

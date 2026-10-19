@@ -32,8 +32,19 @@ final class UpdateChecker {
     /// - Parameters:
     ///   - manual: 是否为用户手动触发（true 时弹 Toast 反馈，false 时仅在发现新版本时挂载状态）
     ///   - completion: 完成回调，供自测与命令行模式对账
+    /// 检查是否有新版本
+    /// - Parameters:
+    ///   - manual: 是否为用户手动触发（true 时弹 Toast 反馈，false 时仅在发现新版本时挂载状态）
+    ///   - completion: 完成回调，供自测与命令行模式对账
     func check(manual: Bool = false, completion: ((UpdateInfo?) -> Void)? = nil) {
+        if manual {
+            AppState.shared.showToast("正在检查新版本…", duration: 8.0)
+        }
+
         guard let url = URL(string: "https://github.com/\(repo)/releases/latest") else {
+            if manual {
+                AppState.shared.showToast("检查更新失败: 无效的地址")
+            }
             completion?(nil)
             return
         }
@@ -51,7 +62,9 @@ final class UpdateChecker {
             DispatchQueue.main.async {
                 if let error = error {
                     if manual {
-                        AppState.shared.showToast("检查更新失败: \(error.localizedDescription)")
+                        let msg = "检查更新失败: \(error.localizedDescription)"
+                        AppState.shared.showToast(msg, duration: 3.0)
+                        self.showManualFallbackAlertIfNeeded(title: "检查更新失败", informative: error.localizedDescription)
                     }
                     completion?(nil)
                     return
@@ -61,7 +74,9 @@ final class UpdateChecker {
                       (200...399).contains(http.statusCode),
                       let finalURL = http.url else {
                     if manual {
-                        AppState.shared.showToast("检查更新失败 (网络或仓库异常)")
+                        let msg = "检查更新失败 (网络或仓库异常)"
+                        AppState.shared.showToast(msg, duration: 3.0)
+                        self.showManualFallbackAlertIfNeeded(title: "检查更新失败", informative: "无法连接到 GitHub 仓库或网络异常，请稍后重试。")
                     }
                     completion?(nil)
                     return
@@ -74,20 +89,40 @@ final class UpdateChecker {
                     let info = UpdateInfo(version: remoteVersion, releaseURL: finalURL)
                     AppState.shared.availableUpdate = info
                     if manual {
-                        AppState.shared.showToast("发现新版本 v\(remoteVersion)，已在浏览器打开")
+                        AppState.shared.showToast("发现新版本 v\(remoteVersion)，已在浏览器打开", duration: 3.0)
                         NSWorkspace.shared.open(finalURL)
                     }
                     completion?(info)
                 } else {
                     AppState.shared.availableUpdate = nil
                     if manual {
-                        AppState.shared.showToast("当前已是最新版本 (v\(self.currentVersion))")
+                        let msg = "当前已是最新版本 (v\(self.currentVersion))"
+                        AppState.shared.showToast(msg, duration: 2.5)
+                        self.showManualFallbackAlertIfNeeded(title: "当前已是最新版本", informative: "Vitals v\(self.currentVersion) 目前已是最新版本。")
                     }
                     completion?(nil)
                 }
             }
         }
         task.resume()
+    }
+
+    /// 若在手动检查更新完成时所有窗口都已关闭/失焦收起，通过对话框兜底确保用户不会漏掉结果
+    @MainActor
+    private func showManualFallbackAlertIfNeeded(title: String, informative: String) {
+        if CommandLine.arguments.contains(where: { $0.hasPrefix("--") }) {
+            return
+        }
+        if DetailWindows.isAnyWindowVisible {
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = informative
+        alert.alertStyle = title.contains("失败") ? .warning : .informational
+        alert.addButton(withTitle: "好")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     /// 语义化版本号比对：remote > local 返回 true

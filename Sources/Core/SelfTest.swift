@@ -37,6 +37,18 @@ enum SelfTest {
         equal("总 tick 为 0 给 0", CPUProvider.usage(prev: [[0, 0, 0, 0]], cur: [[0, 0, 0, 0]]).first ?? -1, 0.0)
         equal("核数变化放弃差分", CPUProvider.usage(prev: [[0, 0, 0, 0]], cur: [[0, 0, 0, 0], [0, 0, 0, 0]]).count, 0)
 
+        print("磁盘 64 位差分防下溢（设备重置时给 0，杜绝 18EB 假突发）：")
+        var prevCounters = RawCounters()
+        prevCounters.t = 1000
+        prevCounters.disk = DiskRaw(readBytes: 5000, writeBytes: 5000, ops: 10)
+        var curCounters = RawCounters()
+        curCounters.t = 1001
+        curCounters.disk = DiskRaw(readBytes: 100, writeBytes: 200, ops: 2)
+        let resetSnapshot = DiffEngine.snapshot(prev: prevCounters, cur: curCounters)
+        equal("读速率归 0", resetSnapshot.disk.readBps, 0.0)
+        equal("写速率归 0", resetSnapshot.disk.writeBps, 0.0)
+        equal("IOPS 归 0", resetSnapshot.disk.iops, 0.0)
+
         print("SSH 配置解析（tab 分隔 / 一行多别名 / 通配跳过 / ProxyJump）：")
         let config = [
             "# 注释",

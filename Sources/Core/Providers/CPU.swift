@@ -4,10 +4,13 @@ import Foundation
 /// CPU 原始计数器：Mach `host_processor_info`，每核 [user, system, idle, nice] 累计 tick。
 enum CPUProvider {
     static func read() -> [[UInt32]]? {
+        let host = mach_host_self()
+        defer { mach_port_deallocate(mach_task_self_, host) }
+
         var count: natural_t = 0
         var info: processor_info_array_t?
         var infoCount: mach_msg_type_number_t = 0
-        let kr = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO,
+        let kr = host_processor_info(host, PROCESSOR_CPU_LOAD_INFO,
                                      &count, &info, &infoCount)
         guard kr == KERN_SUCCESS, let info else { return nil }
         defer {

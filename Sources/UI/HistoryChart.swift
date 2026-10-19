@@ -39,10 +39,13 @@ struct HistorySection: View {
                             .font(.system(size: 10)).foregroundStyle(.secondary).monospacedDigit()
                     }
                 }
+                let allTimestamps = allPoints.map(\.t)
+                let minT = allTimestamps.min() ?? 0
+                let maxT = allTimestamps.max() ?? 0
                 HStack {
-                    Text(Self.clock.string(from: Date(timeIntervalSince1970: TimeInterval(allPoints.first?.t ?? 0))))
+                    Text(Self.clock.string(from: Date(timeIntervalSince1970: TimeInterval(minT))))
                     Spacer()
-                    Text(Self.clock.string(from: Date(timeIntervalSince1970: TimeInterval(allPoints.last?.t ?? 0))))
+                    Text(Self.clock.string(from: Date(timeIntervalSince1970: TimeInterval(maxT))))
                 }
                 .font(.system(size: 9)).foregroundStyle(.tertiary).monospacedDigit()
             }

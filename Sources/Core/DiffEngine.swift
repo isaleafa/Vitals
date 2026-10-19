@@ -35,9 +35,10 @@ enum DiffEngine {
             s.disk.freeBytes = cap.free
         }
         if let d = cur.disk, let p = prev?.disk {
-            s.disk.readBps = Double(d.readBytes &- p.readBytes) / dt
-            s.disk.writeBps = Double(d.writeBytes &- p.writeBytes) / dt
-            s.disk.iops = Double(d.ops &- p.ops) / dt
+            // 64 位计数器不会正常回绕，若驱动重启/设备重置导致 d < p，丢弃该异常差值，防下溢为 18EB 假突发
+            s.disk.readBps = d.readBytes >= p.readBytes ? Double(d.readBytes - p.readBytes) / dt : 0
+            s.disk.writeBps = d.writeBytes >= p.writeBytes ? Double(d.writeBytes - p.writeBytes) / dt : 0
+            s.disk.iops = d.ops >= p.ops ? Double(d.ops - p.ops) / dt : 0
         }
 
         // ── 网络（速率 + 活跃/空闲分类）──

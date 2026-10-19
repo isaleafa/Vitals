@@ -34,9 +34,10 @@ struct MemoryPage: View {
                         .foregroundStyle(pressureColor)
                 }
                 // 构成条：已用（active+wired）/ 压缩 / 可用
+                let rawUsed = memory.usedBytes >= memory.compressedBytes ? (memory.usedBytes - memory.compressedBytes) : 0
                 GeometryReader { geo in
                     let total = max(Double(memory.totalBytes), 1)
-                    let used = Double(memory.usedBytes - memory.compressedBytes) / total
+                    let used = Double(rawUsed) / total
                     let compressed = Double(memory.compressedBytes) / total
                     HStack(spacing: 1) {
                         Rectangle().fill(Color.teal).frame(width: geo.size.width * used)
@@ -47,7 +48,7 @@ struct MemoryPage: View {
                 }
                 .frame(height: 10)
                 HStack(spacing: 14) {
-                    legend(color: .teal, text: "已用 \(Fmt.gb(memory.usedBytes - memory.compressedBytes)) GB")
+                    legend(color: .teal, text: "已用 \(Fmt.gb(rawUsed)) GB")
                     legend(color: .orange, text: "压缩 \(Fmt.gb(memory.compressedBytes)) GB")
                     legend(color: .secondary.opacity(0.35), text: "可用 \(Fmt.gb(memory.availBytes)) GB")
                     Spacer()

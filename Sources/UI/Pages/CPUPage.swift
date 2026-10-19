@@ -19,8 +19,13 @@ struct CPUPage: View {
                         .font(.system(size: 34, weight: .semibold, design: .rounded)).monospacedDigit()
                     VStack(alignment: .leading, spacing: 1) {
                         Text("负载 " + loadText).font(.system(size: 11)).foregroundStyle(.secondary)
-                        Text("\(perfCores) 性能核 + \(max(0, snapshot.cpu.perCore.count - perfCores)) 能效核")
-                            .font(.system(size: 11)).foregroundStyle(.tertiary)
+                        if perfCores > 0 {
+                            Text("\(perfCores) 性能核 + \(max(0, snapshot.cpu.perCore.count - perfCores)) 能效核")
+                                .font(.system(size: 11)).foregroundStyle(.tertiary)
+                        } else {
+                            Text("\(snapshot.cpu.perCore.count) 核心")
+                                .font(.system(size: 11)).foregroundStyle(.tertiary)
+                        }
                     }
                     Spacer()
                 }
@@ -30,12 +35,13 @@ struct CPUPage: View {
             SectionBox(title: "分核占用") {
                 VStack(spacing: 4) {
                     ForEach(Array(snapshot.cpu.perCore.enumerated()), id: \.offset) { index, value in
+                        let isPerf = perfCores == 0 || index < perfCores
                         HStack(spacing: 6) {
                             Text("核\(index + 1)")
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(index < perfCores ? .primary : .secondary)
+                                .foregroundStyle(isPerf ? .primary : .secondary)
                                 .frame(width: 28, alignment: .leading)
-                            MetricBar(fraction: value / 100, color: index < perfCores ? .blue : .teal)
+                            MetricBar(fraction: value / 100, color: isPerf ? .blue : .teal)
                             Text(String(format: "%3.0f%%", value))
                                 .font(.system(size: 10, design: .monospaced)).monospacedDigit()
                                 .frame(width: 38, alignment: .trailing)

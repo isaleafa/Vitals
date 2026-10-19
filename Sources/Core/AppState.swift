@@ -39,14 +39,14 @@ final class AppState: ObservableObject {
     /// 发现的新版本（如有）；轻量后台检测，静默挂载
     @Published var availableUpdate: UpdateInfo?
 
-    func showToast(_ message: String) {
+    func showToast(_ message: String, duration: TimeInterval = 2.0) {
         toastWorkItem?.cancel()
         toastMessage = message
         let item = DispatchWorkItem { [weak self] in
             self?.toastMessage = nil
         }
         toastWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: item)
     }
 
     // 60 点迷你曲线（1 秒一个点）
@@ -186,12 +186,13 @@ final class AppState: ObservableObject {
         return next
     }
 
-    /// 电池 SF Symbol：电量分档 + 接电源时带闪电（符号不存在就退回无闪电版本）。
+    /// 电池 SF Symbol：电量分档 + 接电源时带闪电（SF Symbol 仅内置 battery.100.bolt，低档位退回该符号以保证接电必有闪电）。
     static func batterySymbol(charge: Int, powered: Bool) -> String {
         let level = charge >= 100 ? "100" : charge >= 75 ? "75" : charge >= 50 ? "50" : charge >= 25 ? "25" : "0"
         if powered {
             let bolted = "battery.\(level).bolt"
             if NSImage(systemSymbolName: bolted, accessibilityDescription: nil) != nil { return bolted }
+            return "battery.100.bolt"
         }
         return "battery.\(level)"
     }

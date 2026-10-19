@@ -50,8 +50,13 @@ enum SmartProvider {
         case "Temperature":
             text = text.replacingOccurrences(of: " Celsius", with: " °C")
         case "Data Units Written":
-            if let start = text.firstIndex(of: "["), let end = text.firstIndex(of: "]") {
-                text = String(text[text.index(after: start)..<end])
+            if let start = text.firstIndex(of: "["),
+               let end = text.firstIndex(of: "]"),
+               start < end {
+                let innerStart = text.index(after: start)
+                if innerStart <= end {
+                    text = String(text[innerStart..<end])
+                }
             }
         case "Power On Hours":
             if text.allSatisfy(\.isNumber) { text += " 小时" }
