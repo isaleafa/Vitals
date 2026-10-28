@@ -25,7 +25,7 @@ final class UpdateChecker {
     }
 
     var currentVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.2"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.3"
     }
 
     /// 检查是否有新版本

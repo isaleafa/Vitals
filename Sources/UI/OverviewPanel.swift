@@ -252,43 +252,51 @@ struct OverviewPanel: View {
     }()
 }
 
-/// 获取宿主 NSWindow 并绑定全局外部点击与 Esc 收起行为的轻量级桥接
+/// 监听并捕获宿主 NSWindow 生命周期变化的轻量级专用 View
+private final class WindowDetectingView: NSView {
+    var onWindowChange: ((NSWindow?) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onWindowChange?(window)
+    }
+}
+
+/// 获取宿主 NSWindow 并绑定全局/局部外部点击与 Esc 收起行为的轻量级桥接
 private struct WindowAccessor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        context.coordinator.setup(view: view)
+    func makeNSView(context: Context) -> WindowDetectingView {
+        let view = WindowDetectingView()
+        view.onWindowChange = { [weak coordinator = context.coordinator] window in
+            guard let coordinator else { return }
+            if let window {
+                coordinator.attach(to: window)
+            } else {
+                coordinator.detach()
+            }
+        }
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.update(view: nsView)
+    func updateNSView(_ nsView: WindowDetectingView, context: Context) {
+        if let window = nsView.window, window !== context.coordinator.observedWindow {
+            context.coordinator.attach(to: window)
+        }
     }
 
     @MainActor
     final class Coordinator {
-        private weak var observedWindow: NSWindow?
+        weak var observedWindow: NSWindow?
         private var globalClickMonitor: Any?
+        private var localClickMonitor: Any?
         private var localKeyMonitor: Any?
         private var resignObserver: NSObjectProtocol?
 
-        func setup(view: NSView) {
-            DispatchQueue.main.async { [weak self] in
-                guard let window = view.window else { return }
-                self?.attach(to: window)
-            }
-        }
-
-        func update(view: NSView) {
-            if let window = view.window, window !== observedWindow {
-                attach(to: window)
-            }
-        }
-
-        private func attach(to window: NSWindow) {
+        func attach(to window: NSWindow) {
+            if observedWindow === window { return }
             detach()
             observedWindow = window
             DetailWindows.registerOverviewWindow(window)
@@ -302,7 +310,7 @@ private struct WindowAccessor: NSViewRepresentable {
                 DispatchQueue.main.async { self?.dismiss() }
             }
 
-            // 2. 全局鼠标事件监听：无论焦点在不在本窗口，只要在窗口外部点击任意键，立即收起
+            // 2. 全局外部鼠标监听（无论点击任何其他 App 或桌面，立即收起）
             globalClickMonitor = NSEvent.addGlobalMonitorForEvents(
                 matching: [.leftMouseDown, .rightMouseDown]
             ) { [weak self] _ in
@@ -315,7 +323,19 @@ private struct WindowAccessor: NSViewRepresentable {
                 }
             }
 
-            // 3. 局部按键监听：捕获 Esc 键（keyCode 53）快速收起
+            // 3. 本地应用鼠标监听（点击本应用的详情窗口或非总览区域，立即收起）
+            localClickMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { [weak self] event in
+                guard let self, let win = self.observedWindow, win.isVisible else { return event }
+                let mouse = NSEvent.mouseLocation
+                if !NSMouseInRect(mouse, win.frame, false) {
+                    self.dismiss()
+                }
+                return event
+            }
+
+            // 4. 局部按键监听：捕获 Esc 键（keyCode 53）快速收起
             localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 if event.keyCode == 53 {
                     DispatchQueue.main.async { self?.dismiss() }
@@ -338,6 +358,10 @@ private struct WindowAccessor: NSViewRepresentable {
                 NSEvent.removeMonitor(globalClickMonitor)
                 self.globalClickMonitor = nil
             }
+            if let localClickMonitor {
+                NSEvent.removeMonitor(localClickMonitor)
+                self.localClickMonitor = nil
+            }
             if let localKeyMonitor {
                 NSEvent.removeMonitor(localKeyMonitor)
                 self.localKeyMonitor = nil
@@ -351,6 +375,9 @@ private struct WindowAccessor: NSViewRepresentable {
             }
             if let globalClickMonitor {
                 NSEvent.removeMonitor(globalClickMonitor)
+            }
+            if let localClickMonitor {
+                NSEvent.removeMonitor(localClickMonitor)
             }
             if let localKeyMonitor {
                 NSEvent.removeMonitor(localKeyMonitor)

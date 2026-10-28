@@ -65,6 +65,12 @@ enum DetailWindows {
         if let win = opened["overview"], win.isVisible {
             win.orderOut(nil)
         }
+        // 兜底扫描：无论弱引用是否丢失，关闭所有非详情窗口且非菜单栏常驻小图标的可见弹出面板
+        for window in NSApp.windows {
+            if !(window is DetailWindow) && !NSStringFromClass(type(of: window)).contains("StatusBar") && window.isVisible {
+                window.orderOut(nil)
+            }
+        }
     }
 
     /// 检查指定详情页窗口是否处于打开显示状态
@@ -109,12 +115,14 @@ enum DetailWindows {
 
         if let window = opened[page], window.isVisible {
             bringToFront(window)
+            closeOverviewPanel()
             return
         }
         let window = opened[page] ?? makeWindow(page: page, state: state)
         opened[page] = window
         centerOnMouseScreen(window)
         bringToFront(window)
+        closeOverviewPanel()
 
         // 确保重新打开已存在的窗口时恢复按需采样开关（NSHostingView 复用时不会重走 SwiftUI onAppear）
         switch page {

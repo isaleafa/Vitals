@@ -118,12 +118,12 @@ enum SelfTest {
         equal("wifi.channelSummary", wifi.channelSummary, "信道 153 · 5 GHz · 80 MHz")
 
         print("新版本语义化比对（UpdateChecker 纯函数）：")
-        equal("旧版本不算新", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.1", local: "0.2.2"), false)
-        equal("同版本不算新", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.2", local: "0.2.2"), false)
-        equal("新补丁版本", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.3", local: "0.2.2"), true)
-        equal("新次版本", UpdateChecker.shared.isRemoteNewer(remote: "v0.3.0", local: "0.2.2"), true)
-        equal("新主版本", UpdateChecker.shared.isRemoteNewer(remote: "1.0.0", local: "0.2.2"), true)
-        equal("带 beta 后缀", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.3-beta.1", local: "0.2.2"), true)
+        equal("旧版本不算新", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.2", local: "0.2.3"), false)
+        equal("同版本不算新", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.3", local: "0.2.3"), false)
+        equal("新补丁版本", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.4", local: "0.2.3"), true)
+        equal("新次版本", UpdateChecker.shared.isRemoteNewer(remote: "v0.3.0", local: "0.2.3"), true)
+        equal("新主版本", UpdateChecker.shared.isRemoteNewer(remote: "1.0.0", local: "0.2.3"), true)
+        equal("带 beta 后缀", UpdateChecker.shared.isRemoteNewer(remote: "v0.2.4-beta.1", local: "0.2.3"), true)
 
         print(failed == 0 ? "✓ 全部通过" : "✗ \(failed) 项失败")
         return failed == 0 ? 0 : 1
